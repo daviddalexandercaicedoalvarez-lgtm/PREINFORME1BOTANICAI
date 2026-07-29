@@ -77,6 +77,33 @@
             text-decoration: underline;
             cursor: pointer;
         }
+        .assessable-card {
+            position: relative;
+            padding-bottom: 2.5rem;
+        }
+        .assessment-controls {
+            position: absolute;
+            right: .5rem;
+            bottom: .5rem;
+            display: flex;
+            gap: .25rem;
+        }
+        .assessment-controls button {
+            font-size: .75rem;
+            line-height: 1;
+            padding: .25rem .35rem;
+            border-radius: .35rem;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+        }
+        .assessment-controls button.selected-correct {
+            border-color: #16a34a;
+            background: #dcfce7;
+        }
+        .assessment-controls button.selected-wrong {
+            border-color: #dc2626;
+            background: #fee2e2;
+        }
     </style>
 </head>
 
