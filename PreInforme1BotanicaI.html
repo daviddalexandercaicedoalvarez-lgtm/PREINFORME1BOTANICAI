@@ -1,0 +1,2692 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Plataforma Educativa (Fix)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-by-default {
+            display: none;
+        }
+        .card {
+            perspective: 1000px;
+        }
+        .card-inner {
+            position: relative;
+            width: 240px;
+            height: 140px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card:hover .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            padding: 0.75rem;
+            box-sizing: border-box;
+        }
+        .card-front {
+            background-color: #059669;
+            color: white;
+        }
+        .card-back {
+            background-color: #b91c1c;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .draggable {
+            cursor: grab;
+            background-color: #dbeafe;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin: 0.25rem;
+            display: inline-block;
+            user-select: none;
+        }
+        .dropzone {
+            border: 2px dashed #94a3b8;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            min-height: 50px;
+            transition: border-color 0.25s, background-color 0.25s;
+        }
+        .btn-file {
+            background: #2563eb;
+            color: white;
+            padding: .4rem .75rem;
+            border-radius: .4rem;
+            cursor: pointer;
+        }
+        pre.map {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+        }
+        .link-img {
+            color: #1d4ed8;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+    <div class="max-w-6xl mx-auto p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-indigo-600">Plataforma Educativa Interactiva</h1>
+            <p class="text-sm text-gray-600 mt-2">
+                Recursos sobre <strong>cualquier contenido educativo, que desees agregar</strong>. Incluye quizzes secuenciales, glosario, flashcards, estructuras (imágenes via links), casos y actividades interactivas. Progreso guardado localmente.
+            </p>
+
+            <nav class="mt-4 flex flex-wrap gap-2">
+                <button class="btn" data-target="home">Inicio</button>
+                <button class="btn" data-target="quiz">Quiz</button>
+                <button class="btn" data-target="gloss">Glosario</button>
+                <button class="btn" data-target="flash">Flashcards</button>
+                <button class="btn" data-target="estructuras">Estructuras</button>
+                <button class="btn" data-target="casos">Casos</button>
+                <button class="btn" data-target="interactivo">Interactivo</button>
+                <button class="btn" data-target="map">Mapas</button>
+                <button class="btn" data-target="dash">Dashboard</button>
+                <label class="btn-file ml-2">
+                    Importar contenido (JSON)
+                    <input id="fileInput" type="file" accept="application/json" style="display:none">
+                </label>
+                <button id="exportJSON" class="btn">Exportar contenido</button>
+            </nav>
+        </header>
+
+        <!-- Home -->
+        <section id="home" class="bg-white p-5 rounded shadow">
+            <h2 id="homeTitle" class="text-xl font-semibold mb-2">Bienvenido</h2>
+
+            <p id="homeDescription" class="text-sm text-gray-700">
+                La plataforma está diseñada para estudiar y practicar los tres bloques fundamentales:
+                <strong>Endomembrana</strong> (síntesis, procesamiento y tráfico de proteínas/lípidos),
+                <strong>Estructuras y Procesos</strong> (ribosomas, lisosomas, RE, Golgi y mecanismos moleculares)
+                y <strong>Mitocondrias y Metabolismo – Plastidios y Cloroplastos</strong> (bioenergética, ATP, fotosíntesis).
+                Usa las herramientas interactivas para autoevaluación.
+            </p>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer font-semibold">
+                    Editar contenido de Inicio (JSON)
+                </summary>
+
+                <textarea id="homeJSON"
+                    style="width:100%;height:160px"
+                    class="mt-2 border rounded p-2 font-mono text-sm">
+                    {
+                    "title": "Bienvenido",
+                    "description": "Texto de introducción editable desde JSON."
+                    }
+                </textarea>
+
+                <div class="mt-2 flex gap-2">
+                    <button id="loadHomeJSON" class="px-3 py-1 bg-green-600 text-white rounded">
+                        Cargar Inicio
+                    </button>
+                    <button id="exportHomeJSON" class="px-3 py-1 bg-gray-600 text-white rounded">
+                        Exportar Inicio
+                    </button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Quiz -->
+        <section id="quiz" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Quiz (secuencial por tema)</h2>
+            <div class="flex gap-3 mb-3">
+                <button id="prevQ" class="px-3 py-1 bg-gray-500 text-white rounded">Anterior</button>
+                <button id="nextQ" class="px-3 py-1 bg-indigo-600 text-white rounded">Siguiente</button>
+                <button id="showAll" class="px-3 py-1 bg-gray-600 text-white rounded">Mostrar preguntas (JSON)</button>
+                <select id="quizTopic" class="rounded border px-2"></select>
+            </div>
+
+            <div id="quizArea">
+                <p id="qText" class="font-medium mb-2">
+                    Cargando pregunta...
+                </p>
+                <div id="qOptions" class="space-y-2 mb-3"></div>
+                <button id="checkA" class="px-3 py-1 bg-amber-500 text-white rounded">Verificar</button>
+                <p id="qResult" class="mt-2 text-sm"></p>
+                <p class="text-xs text-gray-500 mt-2">
+                    Pregunta <span id="qNumber">0</span> de <span id="qTotal">0</span>
+                </p>
+            </div>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar inventario de preguntas (JSON)</summary>
+                <textarea id="questionsJSON" style="width:100%;height:200px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuestions" class="px-3 py-1 bg-green-600 text-white rounded">Cargar preguntas desde JSON</button>
+                </div>
+            </details>
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar bloques del quiz (JSON)</summary>
+                <textarea id="quizTopicsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuizTopics" class="px-3 py-1 bg-green-600 text-white rounded">Cargar bloques desde JSON</button>
+                    <button id="exportQuizTopics" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar bloques</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Glosario -->
+        <section id="gloss" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Glosario (términos técnicos)</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <input id="glossSearch" placeholder="Buscar término..." class="w-full p-2 border rounded mb-3" />
+                    <div id="glossList" style="max-height:420px;overflow:auto"></div>
+                </div>
+                <div>
+                    <h3 class="font-semibold">Agregar/editar término</h3>
+                    <input id="termInput" placeholder="Término" class="w-full p-2 border rounded mb-2" />
+                    <textarea id="defInput" placeholder="Definición" class="w-full p-2 border rounded mb-2" style="height:160px"></textarea>
+                    <div class="flex gap-2">
+                        <button id="addTerm" class="px-3 py-1 bg-green-600 text-white rounded">Agregar término</button>
+                        <button id="clearGloss" class="px-3 py-1 bg-red-500 text-white rounded">Borrar todo</button>
+                    </div>
+                </div>
+            </div>
+
+            <details class="mt-4">
+                <summary>Exportar/Importar glosario (JSON)</summary>
+                <textarea id="glossJSON" style="width:100%;height:140px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="importGloss" class="px-3 py-1 bg-blue-600 text-white rounded">Importar glosario</button>
+                    <button id="exportGloss" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar glosario</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Flashcards -->
+        <section id="flash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Flashcards (giran al hacer hover o clic)</h2>
+            <div class="flex flex-wrap gap-4" id="flashContainer" style="min-height:160px"></div>
+
+            <details class="mt-4">
+                <summary>Administrar flashcards (JSON)</summary>
+                <textarea id="flashJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadFlash" class="px-3 py-1 bg-green-600 text-white rounded">Cargar flashcards</button>
+                    <button id="exportFlash" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar flashcards</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Estructuras -->
+        <section id="estructuras" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Estructuras: identificación (imágenes como links)</h2>
+            <p class="text-sm text-gray-700 mb-3">
+                Haz clic en el enlace para abrir la imagen en nueva pestaña y luego elige la opción correcta.
+            </p>
+
+            <div id="structuresArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar estructuras (JSON)</summary>
+                <textarea id="structuresJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadStructures" class="px-3 py-1 bg-green-600 text-white rounded">Cargar estructuras</button>
+                    <button id="exportStructures" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar estructuras</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Casos -->
+        <section id="casos" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Casos de análisis (escenarios clínico/experimentales)</h2>
+            <div id="casesArea"></div>
+
+            <details class="mt-4">
+                <summary>Administrar casos (JSON)</summary>
+                <textarea id="casesJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadCases" class="px-3 py-1 bg-green-600 text-white rounded">Cargar casos</button>
+                    <button id="exportCases" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar casos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Interactivo -->
+        <section id="interactivo" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Interactivo: arrastra y suelta / completar</h2>
+            <p class="text-sm mb-3">
+                Ejercicios arrastrar-soltar y completar. Los ejercicios se cargan desde JSON (50 ítems) para mantener compatibilidad.
+            </p>
+
+            <div id="interactiveArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar interactivos (JSON)</summary>
+                <textarea id="interJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadInter" class="px-3 py-1 bg-green-600 text-white rounded">Cargar interactivos</button>
+                    <button id="exportInter" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar interactivos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Mapas -->
+        <section id="map" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Mapas conceptuales</h2>
+            <div id="mapsDisplay" class="grid grid-cols-1 gap-4 mb-3"></div>
+
+            <details class="mt-4">
+                <summary>Administrar mapas (JSON)</summary>
+                <textarea id="mapsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadMaps" class="px-3 py-1 bg-green-600 text-white rounded">Cargar mapas</button>
+                    <button id="exportMaps" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar mapas</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="dash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Dashboard de progreso</h2>
+
+            <p class="text-sm">
+                Puntaje total:
+                <span id="score">0</span> /
+                <span id="maxScore">0</span>
+            </p>
+
+            <p class="text-sm mt-1">
+                Progreso general:
+                <span id="scorePercent">0%</span>
+            </p>
+
+            <button id="reset" class="mt-2 px-3 py-1 bg-red-500 text-white rounded">
+                Reiniciar progreso
+            </button>
+
+            <div class="mt-4">
+                <h3 class="font-semibold">Progreso por sección</h3>
+                <ul class="list-disc ml-6 text-sm">
+                    <li>Quiz: <span id="progressQuiz" class="font-semibold text-blue-600">0 / 0 - 0%</span></li>
+                    <li>Glosario: <span id="progressGloss" class="font-semibold text-green-600">0 / 0 - 0%</span></li>
+                    <li>Flashcards: <span id="progressFlash" class="font-semibold text-purple-600">0 / 0 - 0%</span></li>
+                    <li>Estructuras: <span id="progressStructures" class="font-semibold text-indigo-600">0 / 0 - 0%</span></li>
+                    <li>Casos: <span id="progressCases" class="font-semibold text-red-600">0 / 0 - 0%</span></li>
+                    <li>Interactivo: <span id="progressInteractive" class="font-semibold text-amber-600">0 / 0 - 0%</span></li>
+                    <li>Mapas: <span id="progressMaps" class="font-semibold text-teal-600">0 / 0 - 0%</span></li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function normalizeText(value) {
+            return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        /* --------------------------
+ESTRUCTURA DE DATOS (DB) - muestra mínima inicial para pruebas.
+Reemplaza con tu JSON grande importándolo.
+-------------------------- */
+        let DB = {
+            "quizTopics": [{
+                "value": "general",
+                "label": "General"
+            },
+                {
+                    "value": "grupos_vegetales",
+                    "label": "1) Grupos vegetales"
+                },
+                {
+                    "value": "plantas_vasculares",
+                    "label": "2) Plantas vasculares"
+                },
+                {
+                    "value": "angiospermas_gimnospermas",
+                    "label": "3) Gimnospermas y Angiospermas"
+                }],
+            "questions": [{
+                "id": "q1",
+                "topic": "grupos_vegetales",
+                "text": "¿Cuál es una característica principal de las Briophyta s.l.?",
+                "options": [
+                    "Poseen semillas encerradas en frutos",
+                    "Son exclusivamente árboles de gran porte",
+                    "Son plantas no vasculares asociadas principalmente a ambientes húmedos"
+                ],
+                "answer": 2,
+                "explain": "Briophyta s.l. comprende musgos, hepáticas y anthocerotas, asociados principalmente con suelo húmedo, rocas, hojas, troncos y lugares protegidos."
+            },
+                {
+                    "id": "q2",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Qué estructura reproductiva caracteriza a las plantas vasculares sin semilla estudiadas en la práctica?",
+                    "options": [
+                        "Esporas",
+                        "Flores",
+                        "Frutos"
+                    ],
+                    "answer": 0,
+                    "explain": "Pteridophyta incluye plantas vasculares sin semilla cuya propagación se realiza mediante esporas."
+                },
+                {
+                    "id": "q3",
+                    "topic": "plantas_vasculares",
+                    "text": "¿Cuál grupo corresponde a plantas vasculares sin semilla?",
+                    "options": [
+                        "Gimnospermas",
+                        "Pteridophyta",
+                        "Angiospermas"
+                    ],
+                    "answer": 1,
+                    "explain": "Pteridophyta comprende plantas vasculares sin semilla, incluyendo helechos, licopodios, Selaginelas y Equisetos."
+                },
+                {
+                    "id": "q4",
+                    "topic": "plantas_vasculares",
+                    "text": "¿Qué grupos se reconocen dentro de Lycophyta?",
+                    "options": [
+                        "Musgos, hepáticas y anthocerotas",
+                        "Lycopodios, Selaginelas e Isoetes",
+                        "Pinos, cipreses y araucarias"
+                    ],
+                    "answer": 1,
+                    "explain": "Lycophyta incluye Lycopodios, Selaginelas e Isoetes."
+                },
+                {
+                    "id": "q5",
+                    "topic": "angiospermas_gimnospermas",
+                    "text": "¿Cuál es la diferencia reproductiva fundamental entre gimnospermas y angiospermas?",
+                    "options": [
+                        "Las angiospermas se reproducen exclusivamente por esporas",
+                        "Las gimnospermas no poseen semillas",
+                        "Las angiospermas poseen semillas encerradas en un fruto, mientras las gimnospermas presentan semillas no encerradas en un fruto verdadero"
+                    ],
+                    "answer": 2,
+                    "explain": "Las gimnospermas presentan semillas no encerradas en un fruto verdadero; en las angiospermas las semillas se desarrollan dentro del ovario que origina el fruto."
+                },
+                {
+                    "id": "q6",
+                    "topic": "angiospermas_gimnospermas",
+                    "text": "¿Qué grupo de angiospermas forma parte de la clasificación indicada en la práctica?",
+                    "options": [
+                        "Pinophyta",
+                        "Monocotiledóneas",
+                        "Equisetopsida"
+                    ],
+                    "answer": 1,
+                    "explain": "La práctica reconoce dentro de Angiospermas o Magnoliophyta a Monocotiledóneas y Eudicotiledóneas, además de Grupo ANA, Chloranthales, Magnólidas y Ceratophyllales."
+                },
+                {
+                    "id": "q7",
+                    "topic": "general",
+                    "text": "¿Cuál es el tema central de la Práctica No. 1?",
+                    "options": [
+                        "Respiración celular",
+                        "Reconocimiento de grupos vegetales",
+                        "División celular por mitosis"
+                    ],
+                    "answer": 1,
+                    "explain": "La práctica se denomina Práctica No. 1. Reconocimiento de grupos vegetales."
+                },
+                {
+                    "id": "q8",
+                    "topic": "general",
+                    "text": "¿Qué tres grandes categorías del reino vegetal se plantean para diferenciar en la práctica?",
+                    "options": [
+                        "Algas, animales y hongos",
+                        "Monocotiledóneas, mamíferos y gimnospermas",
+                        "No vasculares, vasculares sin semilla y vasculares con semilla"
+                    ],
+                    "answer": 2,
+                    "explain": "La práctica organiza el reconocimiento vegetal en no vasculares, vasculares sin semilla y vasculares con semilla."
+                },
+                {
+                    "id": "q9",
+                    "topic": "general",
+                    "text": "¿Qué aspectos se utilizan para establecer diferencias entre los grupos vegetales?",
+                    "options": [
+                        "Solo coloración y tamaño",
+                        "Morfología, fisiología, reproducción y hábitat",
+                        "Únicamente temperatura y altitud"
+                    ],
+                    "answer": 1,
+                    "explain": "La guía señala morfología, fisiología, reproducción y hábitat como aspectos de diferenciación."
+                },
+                {
+                    "id": "q10",
+                    "topic": "general",
+                    "text": "¿Cuál es una actividad principal planteada en el trabajo de campo?",
+                    "options": [
+                        "Identificación vegetal, adaptaciones, asociaciones y estructuras reproductivas",
+                        "Cultivo celular en placas",
+                        "Extracción de ADN mediante reactivos"
+                    ],
+                    "answer": 0,
+                    "explain": "El trabajo de campo se orienta a identificación vegetal, adaptaciones, asociaciones y estructuras reproductivas."
+                },
+                {
+                    "id": "q11",
+                    "topic": "general",
+                    "text": "¿Cuál es uno de los propósitos planteados para el reconocimiento de grupos vegetales?",
+                    "options": [
+                        "Determinar el índice mitótico de células",
+                        "Identificar proteínas celulares",
+                        "Diferenciar plantas no vasculares, vasculares sin semilla y vasculares con semilla"
+                    ],
+                    "answer": 2,
+                    "explain": "Uno de los propósitos centrales es diferenciar los tres grandes grupos vegetales considerados en la práctica."
+                },
+                {
+                    "id": "q12",
+                    "topic": "general",
+                    "text": "¿Qué grupos se busca identificar específicamente durante la práctica?",
+                    "options": [
+                        "Talophyta, Briophyta y Tracheophyta",
+                        "Mammalia, Aves y Reptilia",
+                        "Animalia, Fungi y Protista"
+                    ],
+                    "answer": 0,
+                    "explain": "La guía plantea identificar Talophyta, Briophyta y Tracheophyta."
+                },
+                {
+                    "id": "q13",
+                    "topic": "general",
+                    "text": "¿Qué debe analizarse durante la observación de los taxa vegetales?",
+                    "options": [
+                        "Solo el color de las hojas",
+                        "Únicamente el tamaño del organismo",
+                        "Cuerpo definido, hojas, órganos reproductivos, individuo o colonia, hábitat y estratos"
+                    ],
+                    "answer": 2,
+                    "explain": "Estos criterios forman parte de la observación de taxa vegetales indicada en el procedimiento."
+                },
+                {
+                    "id": "q14",
+                    "topic": "general",
+                    "text": "¿Qué estratos vegetales deben reconocerse en pequeñas áreas del ecosistema?",
+                    "options": [
+                        "Rasante, herbáceo, arbustivo y arbóreo",
+                        "Microscópico, celular, tisular y orgánico",
+                        "Acuático, marino, aéreo y subterráneo"
+                    ],
+                    "answer": 0,
+                    "explain": "La guía establece los estratos rasante, herbáceo, arbustivo y arbóreo."
+                },
+                {
+                    "id": "q15",
+                    "topic": "general",
+                    "text": "¿Qué características del ecosistema deben registrarse durante el recorrido?",
+                    "options": [
+                        "Solo el color y tamaño de las plantas",
+                        "Altitud, humedad, temperatura, suelo, zona de vida y localización con latitud y longitud",
+                        "Únicamente el nombre de las especies"
+                    ],
+                    "answer": 1,
+                    "explain": "La caracterización del ecosistema incluye altitud, humedad, temperatura, suelo, zona de vida y datos de localización."
+                },
+                {
+                    "id": "q16",
+                    "topic": "general",
+                    "text": "¿Qué función cumple la orientación docente durante el recorrido?",
+                    "options": [
+                        "Sustituir el registro fotográfico",
+                        "Realizar la clasificación sin observación del estudiante",
+                        "Orientar el reconocimiento e identificación de los grupos vegetales"
+                    ],
+                    "answer": 2,
+                    "explain": "Durante el recorrido se contempla la orientación docente para el reconocimiento de los diferentes grupos vegetales."
+                },
+                {
+                    "id": "q17",
+                    "topic": "general",
+                    "text": "¿Qué debe incluir la descripción del ecosistema en la guía de trabajo?",
+                    "options": [
+                        "Solo nombres científicos",
+                        "Vegetación, clima, suelos y grupos vegetales",
+                        "Únicamente fotografías"
+                    ],
+                    "answer": 1,
+                    "explain": "La guía de trabajo indica incluir vegetación, clima, suelos y grupos vegetales."
+                },
+                {
+                    "id": "q18",
+                    "topic": "general",
+                    "text": "¿Qué información debe registrarse sobre los grupos vegetales observados?",
+                    "options": [
+                        "Morfología y hábitat",
+                        "Únicamente ubicación geográfica",
+                        "Solo temperatura"
+                    ],
+                    "answer": 0,
+                    "explain": "La guía solicita describir los grupos observados considerando su morfología y hábitat."
+                },
+                {
+                    "id": "q19",
+                    "topic": "general",
+                    "text": "¿Qué evidencia debe acompañar la descripción de los grupos vegetales encontrados?",
+                    "options": [
+                        "Cultivos bacterianos",
+                        "Fotografías",
+                        "Resultados de una tinción"
+                    ],
+                    "answer": 1,
+                    "explain": "La guía contempla fotografías como soporte del registro de los grupos vegetales encontrados."
+                },
+                {
+                    "id": "q20",
+                    "topic": "general",
+                    "text": "¿Qué debe describirse específicamente del ecosistema en el informe?",
+                    "options": [
+                        "Solo el nombre de las plantas",
+                        "Únicamente la reproducción",
+                        "Clima, relieve y altitud"
+                    ],
+                    "answer": 2,
+                    "explain": "El informe debe incluir la descripción del ecosistema considerando clima, relieve y altitud."
+                },
+                {
+                    "id": "q21",
+                    "topic": "general",
+                    "text": "¿Qué grupos deben describirse en el informe de la práctica?",
+                    "options": [
+                        "Solo gimnospermas",
+                        "No vasculares, vasculares sin semilla y vasculares con semilla",
+                        "Solo angiospermas"
+                    ],
+                    "answer": 1,
+                    "explain": "La guía establece que deben describirse los grupos no vasculares, vasculares sin semilla y vasculares con semilla encontrados."
+                },
+                {
+                    "id": "q22",
+                    "topic": "general",
+                    "text": "¿Cuál es el plazo de entrega indicado para la guía de trabajo?",
+                    "options": [
+                        "30 días después",
+                        "8 días después",
+                        "El mismo día"
+                    ],
+                    "answer": 1,
+                    "explain": "La guía de trabajo indica como entrega: 8 días después."
+                },
+                {
+                    "id": "q23",
+                    "topic": "general",
+                    "text": "¿Qué debe desarrollarse mediante observación, trabajo grupal e investigación?",
+                    "options": [
+                        "La extracción de proteínas",
+                        "El reconocimiento de grupos vegetales y sus características",
+                        "La división mitótica de células animales"
+                    ],
+                    "answer": 1,
+                    "explain": "La práctica plantea desarrollar observación, trabajo grupal e investigación para reconocer los grupos vegetales, su morfología, reproducción, estructuras y hábitats."
+                },
+                {
+                    "id": "q24",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Dónde se indica observar principalmente las algas dentro de la práctica?",
+                    "options": [
+                        "En conos de gimnospermas",
+                        "Exclusivamente sobre árboles",
+                        "En aguas estancadas"
+                    ],
+                    "answer": 2,
+                    "explain": "La guía ubica las algas de Talophyta particularmente en aguas estancadas."
+                },
+                {
+                    "id": "q25",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Qué caracteriza a los Lichenes u hongos liquenizados según la guía?",
+                    "options": [
+                        "Una estructura formada exclusivamente por flores",
+                        "Una asociación entre algas y hongos",
+                        "Una asociación entre raíces y semillas"
+                    ],
+                    "answer": 1,
+                    "explain": "La guía define Lichenes u hongos liquenizados como una asociación de algas y hongos."
+                },
+                {
+                    "id": "q26",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Qué organismos comprende Briophyta s.l. en la práctica?",
+                    "options": [
+                        "Lycopodios, Selaginelas e Isoetes",
+                        "Musgos, hepáticas y anthocerotas",
+                        "Pinos, cipreses y araucarias"
+                    ],
+                    "answer": 1,
+                    "explain": "Briophyta s.l. comprende musgos, hepáticas y anthocerotas."
+                },
+                {
+                    "id": "q27",
+                    "topic": "plantas_vasculares",
+                    "text": "¿Qué características se asocian en la guía con las plantas vasculares sin semilla?",
+                    "options": [
+                        "Humedad, sombra, formas postradas o altas y esporas",
+                        "Frutos, flores y semillas encerradas",
+                        "Principalmente árboles plantados con conos"
+                    ],
+                    "answer": 0,
+                    "explain": "La guía relaciona las plantas vasculares sin semilla con humedad, sombra, formas postradas o altas y reproducción por esporas."
+                },
+                {
+                    "id": "q28",
+                    "topic": "plantas_vasculares",
+                    "text": "¿Qué categorías se reconocen dentro de Monilophyta?",
+                    "options": [
+                        "Grupo ANA, Chloranthales, Magnólidas y Ceratophyllales",
+                        "Pinophyta, Cycadophyta, Ginkgophyta y Gnetophyta",
+                        "Equisetopsida, Psilotopsida, Marattiopsida y Polypodiopsida"
+                    ],
+                    "answer": 2,
+                    "explain": "La guía organiza Monilophyta en Equisetopsida, Psilotopsida, Marattiopsida y Polypodiopsida."
+                },
+                {
+                    "id": "q29",
+                    "topic": "angiospermas_gimnospermas",
+                    "text": "¿Qué categorías se reconocen dentro de las gimnospermas según la práctica?",
+                    "options": [
+                        "Monocotiledóneas y Eudicotiledóneas",
+                        "Pinophyta, Cycadophyta, Ginkgophyta y Gnetophyta",
+                        "Lycophyta y Monilophyta"
+                    ],
+                    "answer": 1,
+                    "explain": "La guía incluye Pinophyta, Cycadophyta, Ginkgophyta y Gnetophyta dentro de las gimnospermas."
+                },
+                {
+                    "id": "q30",
+                    "topic": "angiospermas_gimnospermas",
+                    "text": "¿Qué categorías taxonómicas de Angiospermas o Magnoliophyta aparecen en la práctica?",
+                    "options": [
+                        "Pinophyta, Ginkgophyta y Gnetophyta",
+                        "Grupo ANA, Chloranthales, Magnólidas, Ceratophyllales, Monocotiledóneas y Eudicotiledóneas",
+                        "Lycophyta, Monilophyta y Pteridophyta"
+                    ],
+                    "answer": 1,
+                    "explain": "La práctica enumera Grupo ANA, Chloranthales, Magnólidas, Ceratophyllales, Monocotiledóneas y Eudicotiledóneas para Angiospermas o Magnoliophyta."
+                }],
+            "glossary": [{
+                "term": "Talophyta",
+                "def": "Grupo de organismos con organización talofítica, representado en la práctica por algas observadas principalmente en aguas estancadas."
+            },
+                {
+                    "term": "Pteridophyta",
+                    "def": "Grupo de plantas vasculares sin semilla que incluye helechos, licopodios, Selaginelas y Equisetos; se reproducen mediante esporas."
+                },
+                {
+                    "term": "Spermatophyta",
+                    "def": "Grupo de plantas vasculares con semilla que comprende gimnospermas y angiospermas o Magnoliophyta."
+                },
+                {
+                    "term": "Briophyta s.l.",
+                    "def": "Grupo de plantas no vasculares que incluye musgos, hepáticas y anthocerotas."
+                },
+                {
+                    "term": "Tracheophyta",
+                    "def": "Grupo de plantas vasculares que incluye plantas vasculares sin semilla y plantas vasculares con semilla."
+                },
+                {
+                    "term": "Lichenes",
+                    "def": "Hongos liquenizados formados por una asociación entre algas y hongos."
+                },
+                {
+                    "term": "Lycophyta",
+                    "def": "Grupo de plantas vasculares sin semilla que incluye Lycopodios, Selaginelas e Isoetes."
+                },
+                {
+                    "term": "Lycopodios",
+                    "def": "Plantas vasculares sin semilla reconocidas por estructuras reproductivas agrupadas en estróbilos o espigas."
+                },
+                {
+                    "term": "Selaginelas",
+                    "def": "Plantas vasculares sin semilla del grupo Lycophyta, caracterizadas por presentar lígula y, según la especie, dimorfismo foliar."
+                },
+                {
+                    "term": "Isoetes",
+                    "def": "Plantas vasculares sin semilla de Lycophyta, con aspecto de roseta o forma junciforme."
+                },
+                {
+                    "term": "Monilophyta",
+                    "def": "Grupo de plantas vasculares sin semilla que comprende Equisetopsida, Psilotopsida, Marattiopsida y Polypodiopsida."
+                },
+                {
+                    "term": "Equisetopsida",
+                    "def": "Grupo de Monilophyta representado por los Equisetos."
+                },
+                {
+                    "term": "Psilotopsida",
+                    "def": "Grupo de plantas vasculares sin semilla incluido dentro de Monilophyta."
+                },
+                {
+                    "term": "Marattiopsida",
+                    "def": "Grupo de plantas vasculares sin semilla incluido dentro de Monilophyta."
+                },
+                {
+                    "term": "Polypodiopsida",
+                    "def": "Grupo de Monilophyta que comprende los helechos."
+                },
+                {
+                    "term": "Gimnospermas",
+                    "def": "Plantas vasculares con semilla cuyas semillas no están encerradas en un fruto verdadero."
+                },
+                {
+                    "term": "Angiospermas",
+                    "def": "Plantas vasculares con semilla cuyas semillas se desarrollan dentro del ovario que origina el fruto."
+                },
+                {
+                    "term": "Magnoliophyta",
+                    "def": "Nombre utilizado en la práctica para referirse al grupo de las angiospermas."
+                },
+                {
+                    "term": "Pinophyta",
+                    "def": "Grupo de gimnospermas que incluye pinos, cipreses, araucarias y pinos colombianos."
+                },
+                {
+                    "term": "Cycadophyta",
+                    "def": "Grupo de gimnospermas considerado dentro de la clasificación de Spermatophyta."
+                },
+                {
+                    "term": "Ginkgophyta",
+                    "def": "Grupo de gimnospermas considerado dentro de la clasificación de Spermatophyta."
+                },
+                {
+                    "term": "Gnetophyta",
+                    "def": "Grupo de gimnospermas considerado dentro de la clasificación de Spermatophyta."
+                },
+                {
+                    "term": "Monocotiledóneas",
+                    "def": "Grupo de angiospermas reconocido en la clasificación indicada para Magnoliophyta."
+                },
+                {
+                    "term": "Eudicotiledóneas",
+                    "def": "Grupo de angiospermas reconocido en la clasificación indicada para Magnoliophyta."
+                }],
+            "flashcards": [{
+                "id": "f1",
+                "front": "Lycophyta",
+                "back": "Vasculares sin semilla; Lycopodios, Selaginelas e Isoetes."
+            },
+                {
+                    "id": "f2",
+                    "front": "Gimnospermas",
+                    "back": "Vasculares con semillas no encerradas en fruto."
+                },
+                {
+                    "id": "f3",
+                    "front": "Angiospermas",
+                    "back": "Vasculares con flores, frutos y semillas protegidas."
+                },
+                {
+                    "id": "f4",
+                    "front": "Talophyta",
+                    "back": "Organismos talofíticos; incluye algas."
+                },
+                {
+                    "id": "f5",
+                    "front": "Briophyta s.l.",
+                    "back": "No vasculares: musgos, hepáticas y anthocerotas."
+                },
+                {
+                    "id": "f6",
+                    "front": "Tracheophyta",
+                    "back": "Plantas vasculares con o sin semillas."
+                },
+                {
+                    "id": "f7",
+                    "front": "Lichenes",
+                    "back": "Asociación entre algas y hongos."
+                },
+                {
+                    "id": "f8",
+                    "front": "Pteridophyta",
+                    "back": "Vasculares sin semilla; reproducción por esporas."
+                },
+                {
+                    "id": "f9",
+                    "front": "Spermatophyta",
+                    "back": "Vasculares con semilla; gimnospermas y angiospermas."
+                },
+                {
+                    "id": "f10",
+                    "front": "Lycopodios",
+                    "back": "Presentan estróbilos o espigas."
+                },
+                {
+                    "id": "f11",
+                    "front": "Selaginelas",
+                    "back": "Presentan lígula y posible dimorfismo foliar."
+                },
+                {
+                    "id": "f12",
+                    "front": "Isoetes",
+                    "back": "Presentan forma de roseta o junciforme."
+                },
+                {
+                    "id": "f13",
+                    "front": "Monilophyta",
+                    "back": "Vasculares sin semilla; incluye helechos y Equisetos."
+                },
+                {
+                    "id": "f14",
+                    "front": "Equisetopsida",
+                    "back": "Grupo de Monilophyta; incluye Equisetos."
+                },
+                {
+                    "id": "f15",
+                    "front": "Polypodiopsida",
+                    "back": "Grupo de Monilophyta; incluye helechos."
+                },
+                {
+                    "id": "f16",
+                    "front": "Pinophyta",
+                    "back": "Gimnospermas; incluye pinos y cipreses."
+                },
+                {
+                    "id": "f17",
+                    "front": "Cycadophyta",
+                    "back": "Grupo de gimnospermas."
+                },
+                {
+                    "id": "f18",
+                    "front": "Ginkgophyta",
+                    "back": "Grupo de gimnospermas."
+                },
+                {
+                    "id": "f19",
+                    "front": "Gnetophyta",
+                    "back": "Grupo de gimnospermas."
+                },
+                {
+                    "id": "f20",
+                    "front": "Magnoliophyta",
+                    "back": "Nombre usado para las angiospermas."
+                },
+                {
+                    "id": "f21",
+                    "front": "Monocotiledóneas",
+                    "back": "Grupo de angiospermas."
+                },
+                {
+                    "id": "f22",
+                    "front": "Eudicotiledóneas",
+                    "back": "Grupo de angiospermas."
+                },
+                {
+                    "id": "f23",
+                    "front": "Estróbilo",
+                    "back": "Estructura reproductiva característica de Lycopodios."
+                },
+                {
+                    "id": "f24",
+                    "front": "Esporas",
+                    "back": "Unidad reproductiva de plantas vasculares sin semilla."
+                },
+                {
+                    "id": "f25",
+                    "front": "Semilla",
+                    "back": "Estructura reproductiva característica de Spermatophyta."
+                }],
+            "structures": [{
+                "id": "s1",
+                "title": "¿Qué tipo de organismo vegetal se representa en la imagen?",
+                "img": "[https://n9.cl/afha1](https://n9.cl/afha1)",
+                "options": [
+                    "Alga con organización talofítica",
+                    "Planta vascular con semilla",
+                    "Planta vascular sin semilla"
+                ],
+                "answer": 0,
+                "explain": "Las algas de la práctica presentan organización talofítica y se asocian principalmente con ambientes acuáticos."
+            },
+                {
+                    "id": "s2",
+                    "title": "¿Qué representa la imagen en relación con los Lichenes?",
+                    "img": "[https://n9.cl/i71mlq](https://n9.cl/i71mlq)",
+                    "options": [
+                        "Una asociación entre algas y hongos",
+                        "Una estructura reproductiva de una gimnosperma",
+                        "Un tejido vascular de una angiosperma"
+                    ],
+                    "answer": 0,
+                    "explain": "Los líquenes corresponden a hongos liquenizados asociados con un componente algal."
+                },
+                {
+                    "id": "s3",
+                    "title": "¿Qué grupo vegetal corresponde a la estructura observada en la imagen?",
+                    "img": "[https://n9.cl/zw2mxr](https://n9.cl/zw2mxr)",
+                    "options": [
+                        "Musgos de Briophyta s.l.",
+                        "Gimnospermas de Pinophyta",
+                        "Angiospermas eudicotiledóneas"
+                    ],
+                    "answer": 0,
+                    "explain": "Los musgos forman parte de Briophyta s.l., grupo de plantas no vasculares observado principalmente en ambientes húmedos."
+                },
+                {
+                    "id": "s4",
+                    "title": "¿Qué grupo se representa en la imagen?",
+                    "img": "[https://n9.cl/uokry](https://n9.cl/uokry)",
+                    "options": [
+                        "Hepáticas",
+                        "Equisetos",
+                        "Gimnospermas"
+                    ],
+                    "answer": 0,
+                    "explain": "Las hepáticas forman parte de Briophyta s.l. y presentan organización característica de plantas no vasculares."
+                },
+                {
+                    "id": "s5",
+                    "title": "¿A qué grupo corresponde el organismo mostrado?",
+                    "img": "[https://n9.cl/uu54j](https://n9.cl/uu54j)",
+                    "options": [
+                        "Anthocerotas",
+                        "Polypodiopsida",
+                        "Pinophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Las anthocerotas son integrantes de Briophyta s.l., junto con musgos y hepáticas."
+                },
+                {
+                    "id": "s6",
+                    "title": "¿Qué característica permite reconocer al organismo mostrado como un Lycopodio?",
+                    "img": "[https://n9.cl/jauvn](https://n9.cl/jauvn)",
+                    "options": [
+                        "Presencia de estróbilos o espigas",
+                        "Presencia de flores y frutos",
+                        "Presencia de semillas encerradas en un ovario"
+                    ],
+                    "answer": 0,
+                    "explain": "Los Lycopodios son plantas vasculares sin semilla de Lycophyta y pueden reconocerse por sus estróbilos o espigas."
+                },
+                {
+                    "id": "s7",
+                    "title": "¿Qué característica morfológica se asocia con las Selaginelas mostradas?",
+                    "img": "[https://n9.cl/vqijg](https://n9.cl/vqijg)",
+                    "options": [
+                        "Lígula y posible dimorfismo foliar",
+                        "Flores con pétalos y sépalos",
+                        "Conos leñosos con semillas expuestas"
+                    ],
+                    "answer": 0,
+                    "explain": "Las Selaginelas pertenecen a Lycophyta y presentan lígula; algunas muestran dimorfismo en sus hojas."
+                },
+                {
+                    "id": "s8",
+                    "title": "¿Qué rasgo permite reconocer a Isoetes en la imagen?",
+                    "img": "[https://n9.cl/7mby7e](https://n9.cl/7mby7e)",
+                    "options": [
+                        "Aspecto de roseta o junciforme",
+                        "Hábito arbóreo con conos",
+                        "Flores agrupadas en inflorescencias"
+                    ],
+                    "answer": 0,
+                    "explain": "Isoetes es un género de Lycophyta con morfología característica de roseta o aspecto junciforme."
+                },
+                {
+                    "id": "s9",
+                    "title": "¿A qué grupo de Monilophyta corresponde el organismo mostrado?",
+                    "img": "[https://n9.cl/k70qt](https://n9.cl/k70qt)",
+                    "options": [
+                        "Equisetopsida",
+                        "Psilotopsida",
+                        "Polypodiopsida"
+                    ],
+                    "answer": 0,
+                    "explain": "Equisetopsida corresponde al grupo de los Equisetos dentro de Monilophyta."
+                },
+                {
+                    "id": "s10",
+                    "title": "¿Qué grupo de plantas vasculares sin semilla se representa?",
+                    "img": "[https://n9.cl/4d1evz](https://n9.cl/4d1evz)",
+                    "options": [
+                        "Psilotopsida",
+                        "Ginkgophyta",
+                        "Cycadophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Psilotopsida forma parte de Monilophyta, dentro de las plantas vasculares sin semilla."
+                },
+                {
+                    "id": "s11",
+                    "title": "¿Qué categoría taxonómica de Monilophyta representa la imagen?",
+                    "img": "[https://n9.cl/lhdvge](https://n9.cl/lhdvge)",
+                    "options": [
+                        "Marattiopsida",
+                        "Lycophyta",
+                        "Pinophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Marattiopsida es uno de los grupos considerados dentro de Monilophyta."
+                },
+                {
+                    "id": "s12",
+                    "title": "¿Qué grupo corresponde a los helechos mostrados?",
+                    "img": "[https://n9.cl/g654cm](https://n9.cl/g654cm)",
+                    "options": [
+                        "Polypodiopsida",
+                        "Equisetopsida",
+                        "Gnetophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Los helechos se incluyen en Polypodiopsida, dentro de Monilophyta."
+                },
+                {
+                    "id": "s13",
+                    "title": "¿Qué estructura reproductiva permite relacionar la imagen con una gimnosperma como el pino?",
+                    "img": "[https://n9.cl/20ne6](https://n9.cl/20ne6)",
+                    "options": [
+                        "Cono o estróbilo",
+                        "Flor con ovario",
+                        "Fruto derivado del ovario"
+                    ],
+                    "answer": 0,
+                    "explain": "Los pinos pertenecen a Pinophyta y presentan conos o estróbilos asociados con su reproducción."
+                },
+                {
+                    "id": "s14",
+                    "title": "¿A qué grupo de gimnospermas pertenece el organismo mostrado?",
+                    "img": "[https://n9.cl/tgn67](https://n9.cl/tgn67)",
+                    "options": [
+                        "Pinophyta",
+                        "Cycadophyta",
+                        "Ginkgophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "El ciprés pertenece a Pinophyta, grupo de gimnospermas que también incluye pinos y araucarias."
+                },
+                {
+                    "id": "s15",
+                    "title": "¿Qué grupo de gimnospermas representa la imagen de la araucaria?",
+                    "img": "[https://n9.cl/bm1hu](https://n9.cl/bm1hu)",
+                    "options": [
+                        "Pinophyta",
+                        "Gnetophyta",
+                        "Lycophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Las araucarias son gimnospermas pertenecientes a Pinophyta."
+                },
+                {
+                    "id": "s16",
+                    "title": "¿Qué grupo corresponde al organismo identificado como pino colombiano?",
+                    "img": "[https://n9.cl/nkaob](https://n9.cl/nkaob)",
+                    "options": [
+                        "Pinophyta",
+                        "Magnólidas",
+                        "Monilophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Los pinos colombianos considerados en la práctica se incluyen entre las gimnospermas de Pinophyta."
+                },
+                {
+                    "id": "s17",
+                    "title": "¿Qué grupo de gimnospermas se representa mediante la zamia mostrada?",
+                    "img": "[https://n9.cl/fa5clw](https://n9.cl/fa5clw)",
+                    "options": [
+                        "Cycadophyta",
+                        "Ginkgophyta",
+                        "Pinophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Las zamias pertenecen a Cycadophyta, uno de los grupos de gimnospermas considerados en la práctica."
+                },
+                {
+                    "id": "s18",
+                    "title": "¿Qué grupo taxonómico representa la cícada de la imagen?",
+                    "img": "[https://n9.cl/5b5u8](https://n9.cl/5b5u8)",
+                    "options": [
+                        "Cycadophyta",
+                        "Gnetophyta",
+                        "Polypodiopsida"
+                    ],
+                    "answer": 0,
+                    "explain": "Las cícadas pertenecen a Cycadophyta y forman parte de las gimnospermas."
+                },
+                {
+                    "id": "s19",
+                    "title": "¿A qué grupo de gimnospermas corresponde el organismo mostrado?",
+                    "img": "[https://n9.cl/wehhvm](https://n9.cl/wehhvm)",
+                    "options": [
+                        "Ginkgophyta",
+                        "Cycadophyta",
+                        "Pinophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Ginkgo pertenece al grupo Ginkgophyta, incluido entre las gimnospermas."
+                },
+                {
+                    "id": "s20",
+                    "title": "¿Qué grupo de gimnospermas corresponde a la imagen de Ephedra?",
+                    "img": "[https://n9.cl/82fj3](https://n9.cl/82fj3)",
+                    "options": [
+                        "Gnetophyta",
+                        "Pinophyta",
+                        "Ginkgophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Ephedra es un representante de Gnetophyta, grupo de gimnospermas."
+                },
+                {
+                    "id": "s21",
+                    "title": "¿Qué grupo de gimnospermas representa la imagen de Gnetum?",
+                    "img": "[https://n9.cl/qakfyo](https://n9.cl/qakfyo)",
+                    "options": [
+                        "Gnetophyta",
+                        "Cycadophyta",
+                        "Lycophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Gnetum pertenece a Gnetophyta, uno de los grupos de gimnospermas indicados en la práctica."
+                },
+                {
+                    "id": "s22",
+                    "title": "¿Qué grupo de gimnospermas representa la imagen de Welwitschia?",
+                    "img": "[https://n9.cl/2td21k](https://n9.cl/2td21k)",
+                    "options": [
+                        "Gnetophyta",
+                        "Ginkgophyta",
+                        "Pinophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Welwitschia es un género incluido en Gnetophyta."
+                },
+                {
+                    "id": "s23",
+                    "title": "¿Qué grupo de angiospermas se representa en la imagen?",
+                    "img": "[https://n9.cl/3f3h1](https://n9.cl/3f3h1)",
+                    "options": [
+                        "Amborellales",
+                        "Pinophyta",
+                        "Polypodiopsida"
+                    ],
+                    "answer": 0,
+                    "explain": "Amborellales forma parte del Grupo ANA, dentro de las angiospermas o Magnoliophyta."
+                },
+                {
+                    "id": "s24",
+                    "title": "¿Qué grupo de angiospermas corresponde a la planta acuática mostrada?",
+                    "img": "[https://n9.cl/8fij8](https://n9.cl/8fij8)",
+                    "options": [
+                        "Nymphaeales",
+                        "Ceratophyllales",
+                        "Gnetophyta"
+                    ],
+                    "answer": 0,
+                    "explain": "Nymphaeales pertenece al Grupo ANA de las angiospermas y comprende plantas asociadas principalmente con ambientes acuáticos."
+                },
+                {
+                    "id": "s25",
+                    "title": "¿Qué categoría de angiospermas representa mejor la imagen?",
+                    "img": "[https://n9.cl/qlymu](https://n9.cl/qlymu)",
+                    "options": [
+                        "Monocotiledóneas",
+                        "Eudicotiledóneas",
+                        "Gimnospermas"
+                    ],
+                    "answer": 0,
+                    "explain": "Las Monocotiledóneas constituyen uno de los grupos principales de angiospermas reconocidos en la clasificación indicada en la práctica."
+                }],
+            "cases": [{
+                "id": "c1",
+                "text": "Durante el recorrido se encuentra una planta que crece en una zona húmeda y sombreada y presenta reproducción mediante esporas, sin semillas. ¿A qué grupo corresponde?",
+                "options": [
+                    "Pteridophyta",
+                    "Gimnospermas",
+                    "Angiospermas"
+                ],
+                "answer": 0,
+                "feedback": "La combinación de vascularización, ausencia de semillas, ambiente húmedo y reproducción por esporas corresponde a las plantas vasculares sin semilla agrupadas en Pteridophyta."
+            },
+                {
+                    "id": "c2",
+                    "text": "En una zona del ecosistema se observa un árbol de gran porte con estructuras reproductivas en forma de conos y semillas no encerradas en un fruto. ¿Qué grupo se identifica?",
+                    "options": [
+                        "Briophyta s.l.",
+                        "Gimnospermas",
+                        "Angiospermas"
+                    ],
+                    "answer": 1,
+                    "feedback": "Los conos y las semillas no encerradas en un fruto verdadero son características diagnósticas de las gimnospermas; en la práctica se incluyen principalmente árboles como pinos, cipreses y araucarias."
+                },
+                {
+                    "id": "c3",
+                    "text": "Se observa una planta con hábito herbáceo que presenta flor y posteriormente desarrolla una estructura que contiene las semillas. ¿Qué grupo corresponde?",
+                    "options": [
+                        "Talophyta",
+                        "Pteridophyta",
+                        "Angiospermas"
+                    ],
+                    "answer": 2,
+                    "feedback": "Las angiospermas presentan flores y desarrollan frutos a partir del ovario, dentro de los cuales se encuentran las semillas."
+                },
+                {
+                    "id": "c4",
+                    "text": "En aguas estancadas se identifica un organismo con organización talofítica, sin órganos vegetativos diferenciados como raíz, tallo y hojas. ¿Cuál es la identificación más coherente con la práctica?",
+                    "options": [
+                        "Talophyta",
+                        "Monilophyta",
+                        "Spermatophyta"
+                    ],
+                    "answer": 0,
+                    "feedback": "La organización talofítica y el hábitat acuático observado corresponden a Talophyta, representada por algas en la práctica."
+                },
+                {
+                    "id": "c5",
+                    "text": "Sobre la corteza de un árbol se observa una estructura asociada a un sustrato que presenta componentes algales y fúngicos. ¿Qué grupo debe reconocerse?",
+                    "options": [
+                        "Lycophyta",
+                        "Lichenes",
+                        "Gimnospermas"
+                    ],
+                    "answer": 1,
+                    "feedback": "Los Lichenes u hongos liquenizados corresponden a asociaciones entre algas y hongos que pueden ocupar diversos sustratos."
+                },
+                {
+                    "id": "c6",
+                    "text": "En una superficie húmeda y protegida se encuentra un organismo pequeño sin tejidos vasculares evidentes, asociado al suelo y a rocas. ¿Qué grupo resulta más compatible?",
+                    "options": [
+                        "Spermatophyta",
+                        "Briophyta s.l.",
+                        "Pinophyta"
+                    ],
+                    "answer": 1,
+                    "feedback": "Musgos, hepáticas y anthocerotas pertenecen a Briophyta s.l. y se asocian frecuentemente con ambientes húmedos y protegidos."
+                },
+                {
+                    "id": "c7",
+                    "text": "Se identifica una planta vascular sin semillas con estructuras reproductivas agrupadas en forma de espiga. ¿Cuál combinación permite una identificación más precisa?",
+                    "options": [
+                        "Lycopodio y estróbilo",
+                        "Angiosperma y fruto",
+                        "Gimnosperma y cono"
+                    ],
+                    "answer": 0,
+                    "feedback": "Los Lycopodios son integrantes de Lycophyta y pueden reconocerse por sus estróbilos o espigas."
+                },
+                {
+                    "id": "c8",
+                    "text": "Una planta vascular sin semilla presenta hojas pequeñas y estructuras asociadas con una lígula. ¿Qué grupo debe considerarse primero?",
+                    "options": [
+                        "Cycadophyta",
+                        "Selaginelas",
+                        "Magnoliophyta"
+                    ],
+                    "answer": 1,
+                    "feedback": "Las Selaginelas pertenecen a Lycophyta y presentan lígula como característica morfológica diagnóstica."
+                },
+                {
+                    "id": "c9",
+                    "text": "Durante la identificación se encuentra una planta de aspecto de roseta, con apariencia junciforme y perteneciente a las vasculares sin semilla. ¿Cuál es la opción más específica?",
+                    "options": [
+                        "Isoetes",
+                        "Gnetophyta",
+                        "Polypodiopsida"
+                    ],
+                    "answer": 0,
+                    "feedback": "Isoetes pertenece a Lycophyta y presenta una morfología característica de roseta o aspecto junciforme."
+                },
+                {
+                    "id": "c10",
+                    "text": "En una muestra se reconoce un helecho con estructuras propias de plantas vasculares sin semilla. ¿Dentro de qué grupo de la práctica se clasifica?",
+                    "options": [
+                        "Lycophyta",
+                        "Monilophyta",
+                        "Angiospermas"
+                    ],
+                    "answer": 1,
+                    "feedback": "Los helechos se incluyen en Polypodiopsida, dentro de Monilophyta."
+                },
+                {
+                    "id": "c11",
+                    "text": "Se observa un organismo vascular sin semilla con morfología claramente diferente a la de los helechos y asociado al grupo de los equisetos. ¿Qué categoría corresponde?",
+                    "options": [
+                        "Equisetopsida",
+                        "Eudicotiledóneas",
+                        "Pinophyta"
+                    ],
+                    "answer": 0,
+                    "feedback": "Los Equisetos corresponden a Equisetopsida, una de las categorías incluidas dentro de Monilophyta."
+                },
+                {
+                    "id": "c12",
+                    "text": "Una planta presenta tejidos vasculares, no produce semillas y se propaga mediante esporas. ¿Qué combinación taxonómica representa mejor su clasificación dentro de la práctica?",
+                    "options": [
+                        "Tracheophyta → Pteridophyta",
+                        "Tracheophyta → Spermatophyta",
+                        "Briophyta s.l. → Talophyta"
+                    ],
+                    "answer": 0,
+                    "feedback": "Las plantas vasculares sin semilla se ubican en Tracheophyta y, en la clasificación utilizada por la práctica, en Pteridophyta."
+                },
+                {
+                    "id": "c13",
+                    "text": "En el ecosistema una planta alcanza el estrato arbóreo y posee estructuras reproductivas asociadas a semillas, pero no desarrolla un fruto verdadero. ¿Qué grupo se ajusta mejor?",
+                    "options": [
+                        "Briophyta s.l.",
+                        "Gimnospermas",
+                        "Pteridophyta"
+                    ],
+                    "answer": 1,
+                    "feedback": "Las gimnospermas son vasculares con semilla y presentan semillas no encerradas en un fruto verdadero; muchas especies presentan porte arbóreo."
+                },
+                {
+                    "id": "c14",
+                    "text": "Una planta vascular presenta flores y semillas protegidas posteriormente por una estructura derivada del ovario. ¿Qué clasificación es la más adecuada?",
+                    "options": [
+                        "Angiospermas o Magnoliophyta",
+                        "Lycophyta",
+                        "Gimnospermas"
+                    ],
+                    "answer": 0,
+                    "feedback": "Las angiospermas presentan flores y frutos derivados del ovario, dentro de los cuales se desarrollan las semillas."
+                },
+                {
+                    "id": "c15",
+                    "text": "En el recorrido se observa una planta con hábito de bejuco que ocupa diferentes niveles del espacio vegetal y produce estructuras reproductivas florales. ¿Qué interpretación es más consistente?",
+                    "options": [
+                        "Es necesariamente una Briophyta s.l.",
+                        "Corresponde a una angiosperma con hábito de crecimiento adaptado al estrato",
+                        "Debe clasificarse como Lycophyta por su crecimiento vertical"
+                    ],
+                    "answer": 1,
+                    "feedback": "Las angiospermas de la práctica pueden presentar hábitos de árbol, arbusto, bejuco o hierba, ocupando distintos espacios verticales y horizontales."
+                },
+                {
+                    "id": "c16",
+                    "text": "Dos plantas presentan semillas; una posee semillas no encerradas en un fruto verdadero y otra desarrolla semillas dentro de un fruto. ¿Cómo se diferencian?",
+                    "options": [
+                        "Ambas corresponden a Pteridophyta",
+                        "La primera es gimnosperma y la segunda angiosperma",
+                        "La primera es angiosperma y la segunda gimnosperma"
+                    ],
+                    "answer": 1,
+                    "feedback": "La condición de la semilla permite diferenciar gimnospermas de angiospermas: las primeras no forman un fruto verdadero que encierre la semilla; las segundas sí."
+                },
+                {
+                    "id": "c17",
+                    "text": "Durante el análisis de una zona se observa mayor presencia de organismos no vasculares en sectores húmedos y protegidos. ¿Qué factor ambiental explica mejor este patrón?",
+                    "options": [
+                        "La disponibilidad de humedad favorece su establecimiento",
+                        "La presencia obligatoria de frutos carnosos",
+                        "La exposición continua a condiciones extremadamente secas"
+                    ],
+                    "answer": 0,
+                    "feedback": "La humedad y la protección del sustrato son condiciones asociadas en la práctica con la presencia de Briophyta s.l. y otros organismos no vasculares."
+                },
+                {
+                    "id": "c18",
+                    "text": "En una misma zona se observan formas rasantes, herbáceas, arbustivas y arbóreas. ¿Qué permite interpretar esta distribución?",
+                    "options": [
+                        "Que todos los organismos pertenecen al mismo taxón",
+                        "Que la vegetación presenta diferentes estratos y hábitos de crecimiento",
+                        "Que únicamente existen plantas vasculares con semilla"
+                    ],
+                    "answer": 1,
+                    "feedback": "La presencia de distintos estratos refleja diferencias en hábito, tamaño y ocupación vertical de la vegetación."
+                },
+                {
+                    "id": "c19",
+                    "text": "Se registra una planta vascular sin semilla creciendo en sombra y humedad, mientras una planta con semilla ocupa un sector más expuesto. ¿Qué análisis resulta más apropiado?",
+                    "options": [
+                        "La distribución puede relacionarse con adaptaciones y condiciones ambientales diferentes",
+                        "La ausencia de semillas determina obligatoriamente cualquier hábitat",
+                        "La presencia de semillas impide ocupar ambientes húmedos"
+                    ],
+                    "answer": 0,
+                    "feedback": "La distribución vegetal observada puede relacionarse con condiciones ambientales y adaptaciones morfológicas y reproductivas de cada grupo."
+                },
+                {
+                    "id": "c20",
+                    "text": "En el registro de campo se observan plantas con características morfológicas similares, pero ocupando hábitats diferentes. ¿Qué debe evitarse al clasificarlas?",
+                    "options": [
+                        "Considerar simultáneamente morfología, reproducción y hábitat",
+                        "Asignar el grupo únicamente por el lugar donde fueron encontradas",
+                        "Comparar estructuras vegetativas y reproductivas"
+                    ],
+                    "answer": 1,
+                    "feedback": "El hábitat es un criterio útil, pero la identificación debe integrar características morfológicas, reproductivas y ecológicas."
+                },
+                {
+                    "id": "c21",
+                    "text": "Durante la descripción del ecosistema se registra altitud, temperatura, humedad y tipo de suelo junto con la vegetación observada. ¿Qué finalidad tiene integrar estos datos?",
+                    "options": [
+                        "Relacionar las condiciones ambientales con la distribución de los grupos vegetales",
+                        "Determinar únicamente el nombre científico de cada planta",
+                        "Reemplazar la observación de las características morfológicas"
+                    ],
+                    "answer": 0,
+                    "feedback": "Los datos ambientales permiten interpretar por qué determinados grupos vegetales aparecen en sectores específicos del ecosistema."
+                },
+                {
+                    "id": "c22",
+                    "text": "Una planta encontrada durante el recorrido presenta flor, hábito herbáceo y presencia en un ambiente terrestre. ¿Cuál característica aporta mayor peso para diferenciarla de una planta vascular sin semilla?",
+                    "options": [
+                        "El crecimiento en un ambiente terrestre",
+                        "La presencia de una estructura floral y reproducción mediante semillas",
+                        "El tamaño reducido del organismo"
+                    ],
+                    "answer": 1,
+                    "feedback": "La presencia de flores y semillas es diagnóstica para las angiospermas frente a las plantas vasculares sin semilla estudiadas."
+                },
+                {
+                    "id": "c23",
+                    "text": "Al comparar un helecho con un pino observado en campo, ambos presentan tejidos vasculares, pero difieren en su estrategia reproductiva. ¿Cuál comparación es correcta?",
+                    "options": [
+                        "El helecho produce semillas y el pino esporas",
+                        "Ambos producen semillas, pero solo el pino forma flores",
+                        "El helecho se reproduce mediante esporas y el pino mediante semillas"
+                    ],
+                    "answer": 2,
+                    "feedback": "El helecho corresponde a una planta vascular sin semilla que se reproduce mediante esporas; el pino es una gimnosperma que produce semillas."
+                },
+                {
+                    "id": "c24",
+                    "text": "Se realiza el registro fotográfico de varios organismos durante el recorrido. Para que las fotografías sean útiles en la identificación, ¿qué criterio resulta más importante?",
+                    "options": [
+                        "Mostrar únicamente el color general del paisaje",
+                        "Capturar estructuras morfológicas y reproductivas relevantes junto con el hábitat",
+                        "Fotografiar exclusivamente el suelo donde crece la planta"
+                    ],
+                    "answer": 1,
+                    "feedback": "El registro fotográfico debe respaldar la identificación mostrando características diagnósticas del organismo y, cuando sea relevante, su contexto de hábitat."
+                },
+                {
+                    "id": "c25",
+                    "text": "Al integrar los registros de campo se identifican organismos no vasculares, vasculares sin semilla y vasculares con semilla. ¿Cuál conclusión representa mejor el objetivo de la práctica?",
+                    "options": [
+                        "La diversidad vegetal puede reconocerse relacionando organización corporal, estructuras reproductivas, hábitat y adaptaciones",
+                        "Todos los grupos vegetales presentan las mismas estructuras reproductivas y ocupan los mismos estratos",
+                        "La clasificación vegetal depende exclusivamente del tamaño de los organismos observados"
+                    ],
+                    "answer": 0,
+                    "feedback": "La práctica busca reconocer y diferenciar grupos vegetales integrando características morfológicas, reproductivas, ecológicas, hábitat y distribución dentro del ecosistema."
+                }],
+            "interactives": [{
+                "id": "i1",
+                "type": "dragdrop",
+                "title": "Relaciona cada grupo vegetal con la característica que permite diferenciarlo",
+                "terms": [
+                    "Talophyta",
+                    "Lichenes",
+                    "Briophyta s.l.",
+                    "Lycophyta",
+                    "Monilophyta",
+                    "Gimnospermas",
+                    "Angiospermas"
+                ],
+                "targets": [
+                    "Algas con organización talofítica",
+                    "Asociación entre algas y hongos liquenizados",
+                    "Plantas no vasculares asociadas principalmente a ambientes húmedos",
+                    "Plantas vasculares sin semilla como Lycopodios, Selaginelas e Isoetes",
+                    "Plantas vasculares sin semilla que incluyen Equisetopsida y helechos",
+                    "Plantas vasculares con semillas no encerradas en un fruto verdadero",
+                    "Plantas vasculares con flores y semillas desarrolladas dentro del fruto"
+                ],
+                "answerMap": {
+                    "Talophyta": "Algas con organización talofítica",
+                    "Lichenes": "Asociación entre algas y hongos liquenizados",
+                    "Briophyta s.l.": "Plantas no vasculares asociadas principalmente a ambientes húmedos",
+                    "Lycophyta": "Plantas vasculares sin semilla como Lycopodios, Selaginelas e Isoetes",
+                    "Monilophyta": "Plantas vasculares sin semilla que incluyen Equisetopsida y helechos",
+                    "Gimnospermas": "Plantas vasculares con semillas no encerradas en un fruto verdadero",
+                    "Angiospermas": "Plantas vasculares con flores y semillas desarrolladas dentro del fruto"
+                }
+            },
+                {
+                    "id": "i2",
+                    "type": "complete",
+                    "title": "Completa la relación reproductiva",
+                    "prompt": "Las plantas vasculares sin semilla estudiadas en Pteridophyta se propagan mediante _____ y no mediante semillas.",
+                    "answer": "esporas"
+                },
+                {
+                    "id": "i3",
+                    "type": "complete",
+                    "title": "Completa la clasificación de Tracheophyta",
+                    "prompt": "Las plantas vasculares se dividieron en la práctica en Pteridophyta, vasculares sin semilla, y _____, vasculares con semilla.",
+                    "answer": "Spermatophyta"
+                },
+                {
+                    "id": "i4",
+                    "type": "dragdrop",
+                    "title": "Relaciona cada taxón con el conjunto al que pertenece",
+                    "terms": [
+                        "Lycopodios",
+                        "Selaginelas",
+                        "Isoetes",
+                        "Equisetopsida",
+                        "Polypodiopsida",
+                        "Pinophyta",
+                        "Cycadophyta",
+                        "Ginkgophyta",
+                        "Gnetophyta"
+                    ],
+                    "targets": [
+                        "Lycophyta",
+                        "Lycophyta",
+                        "Lycophyta",
+                        "Monilophyta",
+                        "Monilophyta",
+                        "Gimnospermas",
+                        "Gimnospermas",
+                        "Gimnospermas",
+                        "Gimnospermas"
+                    ],
+                    "answerMap": {
+                        "Lycopodios": "Lycophyta",
+                        "Selaginelas": "Lycophyta",
+                        "Isoetes": "Lycophyta",
+                        "Equisetopsida": "Monilophyta",
+                        "Polypodiopsida": "Monilophyta",
+                        "Pinophyta": "Gimnospermas",
+                        "Cycadophyta": "Gimnospermas",
+                        "Ginkgophyta": "Gimnospermas",
+                        "Gnetophyta": "Gimnospermas"
+                    }
+                },
+                {
+                    "id": "i5",
+                    "type": "complete",
+                    "title": "Completa la característica de Lycophyta",
+                    "prompt": "En la observación de Lycopodios se reconocieron principalmente _____ o espigas como estructuras morfológicas distintivas.",
+                    "answer": "estróbilos"
+                },
+                {
+                    "id": "i6",
+                    "type": "complete",
+                    "title": "Completa la característica de Selaginelas",
+                    "prompt": "Una característica morfológica utilizada para reconocer Selaginelas fue la presencia de _____, asociada también con posible dimorfismo.",
+                    "answer": "lígula"
+                },
+                {
+                    "id": "i7",
+                    "type": "complete",
+                    "title": "Completa la característica de Isoetes",
+                    "prompt": "La morfología de Isoetes puede reconocerse por su aspecto de _____ o junciforme.",
+                    "answer": "roseta"
+                },
+                {
+                    "id": "i8",
+                    "type": "dragdrop",
+                    "title": "Relaciona los grupos de Monilophyta con su denominación correspondiente",
+                    "terms": [
+                        "Equisetopsida",
+                        "Psilotopsida",
+                        "Marattiopsida",
+                        "Polypodiopsida"
+                    ],
+                    "targets": [
+                        "Equisetos",
+                        "Grupo de plantas vasculares sin semilla",
+                        "Grupo de plantas vasculares sin semilla",
+                        "Helechos"
+                    ],
+                    "answerMap": {
+                        "Equisetopsida": "Equisetos",
+                        "Psilotopsida": "Grupo de plantas vasculares sin semilla",
+                        "Marattiopsida": "Grupo de plantas vasculares sin semilla",
+                        "Polypodiopsida": "Helechos"
+                    }
+                },
+                {
+                    "id": "i9",
+                    "type": "complete",
+                    "title": "Completa la diferencia reproductiva",
+                    "prompt": "En las gimnospermas las semillas se presentan _____ de un fruto verdadero, a diferencia de las angiospermas.",
+                    "answer": "no encerradas"
+                },
+                {
+                    "id": "i10",
+                    "type": "dragdrop",
+                    "title": "Relaciona cada gimnosperma con su grupo taxonómico",
+                    "terms": [
+                        "Pinos",
+                        "Ciprés",
+                        "Araucarias",
+                        "Zamias",
+                        "Cícadas",
+                        "Ginkgo",
+                        "Ephedra",
+                        "Gnetum",
+                        "Welwitschia"
+                    ],
+                    "targets": [
+                        "Pinophyta",
+                        "Pinophyta",
+                        "Pinophyta",
+                        "Cycadophyta",
+                        "Cycadophyta",
+                        "Ginkgophyta",
+                        "Gnetophyta",
+                        "Gnetophyta",
+                        "Gnetophyta"
+                    ],
+                    "answerMap": {
+                        "Pinos": "Pinophyta",
+                        "Ciprés": "Pinophyta",
+                        "Araucarias": "Pinophyta",
+                        "Zamias": "Cycadophyta",
+                        "Cícadas": "Cycadophyta",
+                        "Ginkgo": "Ginkgophyta",
+                        "Ephedra": "Gnetophyta",
+                        "Gnetum": "Gnetophyta",
+                        "Welwitschia": "Gnetophyta"
+                    }
+                },
+                {
+                    "id": "i11",
+                    "type": "complete",
+                    "title": "Completa la característica diagnóstica de las angiospermas",
+                    "prompt": "La estructura reproductiva que permite reconocer de forma característica a las angiospermas es la _____, a partir de la cual el ovario puede originar el fruto.",
+                    "answer": "flor"
+                },
+                {
+                    "id": "i12",
+                    "type": "dragdrop",
+                    "title": "Relaciona cada grupo de angiospermas con su categoría",
+                    "terms": [
+                        "Amborellales",
+                        "Nymphaeales",
+                        "Austrobaileyales",
+                        "Chloranthales",
+                        "Magnólidas",
+                        "Ceratophyllales",
+                        "Monocotiledóneas",
+                        "Eudicotiledóneas"
+                    ],
+                    "targets": [
+                        "Grupo ANA",
+                        "Grupo ANA",
+                        "Grupo ANA",
+                        "Otros grupos taxonómicos de angiospermas",
+                        "Otros grupos taxonómicos de angiospermas",
+                        "Otros grupos taxonómicos de angiospermas",
+                        "Otros grupos taxonómicos de angiospermas",
+                        "Otros grupos taxonómicos de angiospermas"
+                    ],
+                    "answerMap": {
+                        "Amborellales": "Grupo ANA",
+                        "Nymphaeales": "Grupo ANA",
+                        "Austrobaileyales": "Grupo ANA",
+                        "Chloranthales": "Otros grupos taxonómicos de angiospermas",
+                        "Magnólidas": "Otros grupos taxonómicos de angiospermas",
+                        "Ceratophyllales": "Otros grupos taxonómicos de angiospermas",
+                        "Monocotiledóneas": "Otros grupos taxonómicos de angiospermas",
+                        "Eudicotiledóneas": "Otros grupos taxonómicos de angiospermas"
+                    }
+                },
+                {
+                    "id": "i13",
+                    "type": "complete",
+                    "title": "Completa la organización del Grupo ANA",
+                    "prompt": "El Grupo ANA reconocido en la práctica está integrado por Amborellales, Nymphaeales y _____.",
+                    "answer": "Austrobaileyales"
+                },
+                {
+                    "id": "i14",
+                    "type": "dragdrop",
+                    "title": "Relaciona el grupo con su característica morfológica o ecológica",
+                    "terms": [
+                        "Talophyta",
+                        "Lichenes",
+                        "Briophyta s.l.",
+                        "Lycopodios",
+                        "Selaginelas",
+                        "Isoetes"
+                    ],
+                    "targets": [
+                        "Organización talofítica y asociación frecuente con ambientes acuáticos",
+                        "Asociación entre un alga y un hongo liquenizado",
+                        "Musgos, hepáticas y anthocerotas asociados principalmente con humedad",
+                        "Estróbilos o espigas",
+                        "Lígula y posible dimorfismo",
+                        "Roseta o aspecto junciforme"
+                    ],
+                    "answerMap": {
+                        "Talophyta": "Organización talofítica y asociación frecuente con ambientes acuáticos",
+                        "Lichenes": "Asociación entre un alga y un hongo liquenizado",
+                        "Briophyta s.l.": "Musgos, hepáticas y anthocerotas asociados principalmente con humedad",
+                        "Lycopodios": "Estróbilos o espigas",
+                        "Selaginelas": "Lígula y posible dimorfismo",
+                        "Isoetes": "Roseta o aspecto junciforme"
+                    }
+                },
+                {
+                    "id": "i15",
+                    "type": "complete",
+                    "title": "Completa la relación entre estructura y reproducción",
+                    "prompt": "En las plantas vasculares sin semilla, la ausencia de _____ se relaciona con la propagación mediante esporas.",
+                    "answer": "semillas"
+                },
+                {
+                    "id": "i16",
+                    "type": "dragdrop",
+                    "title": "Relaciona cada nivel de organización con su descripción",
+                    "terms": [
+                        "Talophyta",
+                        "Briophyta s.l.",
+                        "Tracheophyta",
+                        "Pteridophyta",
+                        "Spermatophyta"
+                    ],
+                    "targets": [
+                        "Organismos con organización talofítica representados por algas",
+                        "Grupo de plantas no vasculares que incluye musgos, hepáticas y anthocerotas",
+                        "Plantas vasculares",
+                        "Plantas vasculares sin semilla",
+                        "Plantas vasculares con semilla"
+                    ],
+                    "answerMap": {
+                        "Talophyta": "Organismos con organización talofítica representados por algas",
+                        "Briophyta s.l.": "Grupo de plantas no vasculares que incluye musgos, hepáticas y anthocerotas",
+                        "Tracheophyta": "Plantas vasculares",
+                        "Pteridophyta": "Plantas vasculares sin semilla",
+                        "Spermatophyta": "Plantas vasculares con semilla"
+                    }
+                },
+                {
+                    "id": "i17",
+                    "type": "complete",
+                    "title": "Completa la clasificación de los grupos con semilla",
+                    "prompt": "Spermatophyta comprende dos grandes grupos reconocidos en la práctica: _____ y Angiospermas o Magnoliophyta.",
+                    "answer": "Gimnospermas"
+                },
+                {
+                    "id": "i18",
+                    "type": "dragdrop",
+                    "title": "Relaciona el grupo con su estructura reproductiva o condición característica",
+                    "terms": [
+                        "Pteridophyta",
+                        "Gimnospermas",
+                        "Angiospermas",
+                        "Lycophyta",
+                        "Pinophyta"
+                    ],
+                    "targets": [
+                        "Esporas",
+                        "Semillas no encerradas en un fruto verdadero",
+                        "Flores y semillas desarrolladas dentro del fruto",
+                        "Esporas y ausencia de semillas",
+                        "Conos o estróbilos en grupos como pinos y cipreses"
+                    ],
+                    "answerMap": {
+                        "Pteridophyta": "Esporas",
+                        "Gimnospermas": "Semillas no encerradas en un fruto verdadero",
+                        "Angiospermas": "Flores y semillas desarrolladas dentro del fruto",
+                        "Lycophyta": "Esporas y ausencia de semillas",
+                        "Pinophyta": "Conos o estróbilos en grupos como pinos y cipreses"
+                    }
+                },
+                {
+                    "id": "i19",
+                    "type": "complete",
+                    "title": "Completa la relación entre hábitat y reconocimiento",
+                    "prompt": "La observación de Briophyta s.l. se asocia principalmente con suelo _____, zonas protegidas, rocas, hojas y troncos.",
+                    "answer": "húmedo"
+                },
+                {
+                    "id": "i20",
+                    "type": "complete",
+                    "title": "Completa la relación entre angiospermas y hábito",
+                    "prompt": "Las angiospermas observadas pueden presentar hábitos como árboles, arbustos, bejucos y _____, además de formas erguidas o postradas.",
+                    "answer": "hierbas"
+                }],
+            "maps": {
+                "grupos_vegetales": "Grupos vegetales\n├─ No vasculares\n│  ├─ Talophyta → algas\n│  ├─ Lichenes → asociación alga + hongo\n│  └─ Briophyta s.l. → musgos, hepáticas, anthocerotas\n├─ Vasculares sin semilla\n│  └─ Pteridophyta\n│     ├─ Lycophyta → Lycopodios, Selaginelas, Isoetes\n│     └─ Monilophyta → Equisetopsida, Psilotopsida, Marattiopsida, Polypodiopsida\n└─ Vasculares con semilla\n   └─ Spermatophyta",
+                "plantas_vasculares": "Plantas vasculares\n├─ Sin semilla\n│  └─ Pteridophyta\n│     ├─ Humedad y sombra\n│     ├─ Formas postradas o altas\n│     └─ Esporas\n└─ Con semilla\n   └─ Spermatophyta\n      ├─ Gimnospermas\n      │  ├─ Pinophyta\n      │  ├─ Cycadophyta\n      │  ├─ Ginkgophyta\n      │  └─ Gnetophyta\n      └─ Angiospermas\n         ├─ Grupo ANA\n         ├─ Chloranthales\n         ├─ Magnólidas\n         ├─ Ceratophyllales\n         ├─ Monocotiledóneas\n         └─ Eudicotiledóneas",
+                "angiospermas_gimnospermas": "Gimnospermas y Angiospermas\n├─ Gimnospermas\n│  ├─ Principalmente árboles plantados\n│  ├─ Pinophyta → pinos, ciprés, araucarias\n│  ├─ Cycadophyta → zamias, cícadas\n│  ├─ Ginkgophyta → Ginkgo\n│  └─ Gnetophyta → Ephedra, Gnetum, Welwitschia\n└─ Angiospermas / Magnoliophyta\n   ├─ Hábitos → árboles, arbustos, bejucos, hierbas\n   ├─ Hábitats → terrestres, acuáticos, epífitos\n   ├─ Grupo ANA\n   ├─ Chloranthales\n   ├─ Magnólidas\n   ├─ Ceratophyllales\n   ├─ Monocotiledóneas\n   └─ Eudicotiledóneas"
+            }
+        };
+
+        /* --------------------------
+Utilidades y renderizado
+-------------------------- */
+        function ensureDbShape() {
+            DB.quizTopics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+            DB.questions = Array.isArray(DB.questions) ? DB.questions: [];
+            DB.glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+            DB.flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+            DB.structures = Array.isArray(DB.structures) ? DB.structures: [];
+            DB.cases = Array.isArray(DB.cases) ? DB.cases: [];
+            DB.interactives = Array.isArray(DB.interactives) ? DB.interactives: [];
+            DB.maps = DB.maps && typeof DB.maps === 'object' ? DB.maps: {};
+        }
+
+        function escapeHtml(s) {
+            if (!s) return ''; return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+        }
+
+        /* render glossary */
+        function renderGloss() {
+            const list = document.getElementById('glossList');
+            list.innerHTML = '';
+
+            const glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+            const query = normalizeText(document.getElementById('glossSearch').value || '');
+
+            glossary
+            .filter(item => {
+                const term = normalizeText(item.term);
+                const def = normalizeText(item.def);
+                return !query || term.includes(query) || def.includes(query);
+            })
+            .forEach((g, idx) => {
+                const itemId = g.id || `gloss-${idx}`;
+
+                const div = document.createElement('div');
+                div.className = 'relative p-2 border-b';
+
+                div.innerHTML = `
+                <strong>${escapeHtml(g.term)}</strong>
+                <p class="text-xs text-gray-700 pr-14">${escapeHtml(g.def)}</p>
+
+                <button data-i="${idx}" class="edit-gloss text-blue-600 text-xs mt-1">
+                Editar
+                </button>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="gloss" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="gloss" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                `;
+
+                list.appendChild(div);
+            });
+
+            list.querySelectorAll('.edit-gloss').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const i = parseInt(btn.dataset.i);
+                    document.getElementById('termInput').value = DB.glossary[i].term || '';
+                    document.getElementById('defInput').value = DB.glossary[i].def || '';
+                    DB.glossary.splice(i, 1);
+                    renderGloss();
+                    saveToLocal();
+                    updateDashboard();
+                });
+            });
+
+            list.querySelectorAll('.score-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                    );
+                });
+            });
+
+            document.getElementById('glossJSON').value = JSON.stringify(glossary, null, 2);
+        }
+        document.getElementById('glossSearch').addEventListener('input', renderGloss);
+
+        /* render flashcards */
+        function renderFlashcards() {
+            const cont = document.getElementById('flashContainer');
+            cont.innerHTML = '';
+
+            const flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+
+            flashcards.forEach((f, i) => {
+                const itemId = f.id || `flash-${i}`;
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.width = '240px';
+
+                card.innerHTML = `
+                <div class="card-inner" data-index="${i}">
+                <div class="card-front">
+                ${escapeHtml(f.front)}
+                </div>
+
+                <div class="card-back relative">
+                <span class="pr-14">${escapeHtml(f.back)}</span>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="flash" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="flash" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                </div>
+                </div>
+                `;
+
+                card.querySelector('.card-inner').addEventListener('click', e => {
+                    const inner = e.currentTarget;
+                    inner.style.transform = inner.style.transform ? '': 'rotateY(180deg)';
+                });
+
+                card.querySelectorAll('.score-btn').forEach(btn => {
+                    btn.addEventListener('click', e => {
+                        e.stopPropagation();
+
+                        markItem(
+                            btn.dataset.section,
+                            btn.dataset.id,
+                            btn.dataset.correct === 'true'
+                        );
+                    });
+                });
+
+                cont.appendChild(card);
+            });
+
+            document.getElementById('flashJSON').value = JSON.stringify(flashcards, null, 2);
+        }
+
+        /* render structures */
+        function renderStructures() {
+            const area = document.getElementById('structuresArea'); area.innerHTML = '';
+            const structures = Array.isArray(DB.structures) ? DB.structures: [];
+            structures.forEach((s, idx)=> {
+                const options = Array.isArray(s.options) ? s.options: [];
+                const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded';
+                wrap.innerHTML = `<div><h4 class="font-semibold">${idx+1}. ${escapeHtml(s.title)}</h4><div class="text-sm mt-1">Imagen: <a class="link-img" target="_blank" href="${s.img}">${s.img}</a></div><div class="mt-2" id="opts-${idx}"></div></div>`;
+                area.appendChild(wrap);
+                const optsDiv = wrap.querySelector(`#opts-${idx}`);
+                options.forEach((o, i)=> {
+                    const radio = document.createElement('label'); radio.className = 'mr-3 block'; radio.innerHTML = `<input type="radio" name="struct_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(radio);
+                });
+                const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                btn.addEventListener('click', () => {
+                    const sel = wrap.querySelector(`input[name="struct_${idx}"]:checked`);
+
+                    if (!sel) {
+                        alert('Selecciona opción');
+                        return;
+                    }
+
+                    const itemId = s.id || `structure-${idx}`;
+
+                    if (parseInt(sel.value) === s.answer) {
+                        alert('✅ Correcto\n' + (s.explain || ''));
+                        markItem('structures', itemId, true);
+                    } else {
+                        alert('❌ Incorrecto\n' + (s.explain || ''));
+                        markItem('structures', itemId, false);
+                    }
+                });
+                wrap.appendChild(btn);
+            });
+            document.getElementById('structuresJSON').value = JSON.stringify(structures, null, 2);
+        }
+
+        /* render cases */
+        function renderCases() {
+            const area = document.getElementById('casesArea'); area.innerHTML = '';
+            const casesList = Array.isArray(DB.cases) ? DB.cases: [];
+            casesList.forEach((c,
+                idx)=> {
+                const options = Array.isArray(c.options) ? c.options: [];
+                const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded mb-3';
+                wrap.innerHTML = `<div><h4 class="font-semibold">Caso ${idx+1}</h4><p class="mt-1">${escapeHtml(c.text)}</p><div class="mt-2" id="caseOpts${idx}"></div></div>`;
+                area.appendChild(wrap);
+                const optsDiv = wrap.querySelector(`#caseOpts${idx}`);
+                options.forEach((o, i)=> {
+                    const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="case_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(label);
+                });
+                const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-indigo-600 text-white rounded'; btn.textContent = 'Responder';
+                btn.addEventListener('click',
+                    () => {
+                        const sel = wrap.querySelector(`input[name="case_${idx}"]:checked`);
+
+                        if (!sel) {
+                            alert('Selecciona opción');
+                            return;
+                        }
+
+                        const itemId = c.id || `case-${idx}`;
+
+                        if (parseInt(sel.value) === c.answer) {
+                            alert('✅ Correcto\n' + (c.feedback || ''));
+                            markItem('cases', itemId, true);
+                        } else {
+                            alert('❌ Incorrecto\n' + (c.feedback || ''));
+                            markItem('cases', itemId, false);
+                        }
+                    });
+                wrap.appendChild(btn);
+            });
+            document.getElementById('casesJSON').value = JSON.stringify(casesList, null, 2);
+        }
+
+        /* render interactives with correct drag/drop handling */
+        function renderInteratives() {
+            const area = document.getElementById('interactiveArea'); area.innerHTML = '';
+            (Array.isArray(DB.interactives) ? DB.interactives: []).forEach((it,
+                idx)=> {
+                const block = document.createElement('div'); block.className = 'p-3 border rounded';
+                block.innerHTML = `<h4 class="font-semibold">${idx+1}. ${escapeHtml(it.title || it.id)}</h4>`;
+                if (it.type === 'dragdrop') {
+                    const terms = Array.isArray(it.terms) ? it.terms: [];
+                    const targets = Array.isArray(it.targets) ? it.targets: [];
+                    const termsDiv = document.createElement('div'); termsDiv.className = 'mt-2 flex gap-2 flex-wrap';
+                    terms.forEach((t, i)=> {
+                        const d = document.createElement('div'); d.className = 'draggable'; d.id = `term-${idx}-${i}`; d.draggable = true; d.textContent = t;
+                        d.addEventListener('dragstart', e => {
+                            e.dataTransfer.setData('text/plain', d.id); e.dataTransfer.effectAllowed = 'move';
+                        });
+                        termsDiv.appendChild(d);
+                    });
+                    const targetsDiv = document.createElement('div'); targetsDiv.className = 'mt-3 grid grid-cols-1 gap-2';
+                    targets.forEach((tg, i)=> {
+                        const dz = document.createElement('div'); dz.className = 'dropzone'; dz.id = `target-${idx}-${i}`;
+                        dz.dataset.target = tg;
+                        const label = document.createElement('span');
+                        label.className = 'dropzone-label';
+                        label.textContent = tg;
+                        dz.appendChild(label);
+                        dz.addEventListener('dragover', e => {
+                            e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dz.style.backgroundColor = '#f8fafc';
+                        });
+                        dz.addEventListener('dragleave', e => {
+                            dz.style.backgroundColor = '';
+                        });
+                        dz.addEventListener('drop', e => {
+                            e.preventDefault();
+                            dz.style.backgroundColor = '';
+                            const id = e.dataTransfer.getData('text/plain');
+                            const el = document.getElementById(id);
+                            if (!el) return;
+                            // append (this move automatically removes from previous parent)
+                            dz.appendChild(el);
+                            // compute trimmed texts
+                            const childText = el.textContent.trim();
+                            const expected = normalizeText((it.answerMap && it.answerMap[childText]) ? it.answerMap[childText]: '');
+                            const zoneText = normalizeText(dz.dataset.target || label.textContent || '');
+                            if (expected && expected === zoneText) {
+                                dz.style.borderColor = '#16a34a';
+                                dz.style.backgroundColor = '#ecfdf5';
+                                dz.dataset.correct = 'true';
+                            } else {
+                                dz.style.borderColor = '#dc2626';
+                                dz.style.backgroundColor = '#fff1f2';
+                                dz.dataset.correct = 'false';
+                            }
+                            // For other zones: if empty reset; if they have children, re-evaluate them
+                            targets.forEach((ot, j)=> {
+                                const otherDz = document.getElementById(`target-${idx}-${j}`);
+                                if (!otherDz) return;
+                                if (otherDz === dz) return;
+                                // remove any duplicate of the moved element (safety)
+                                Array.from(otherDz.querySelectorAll('.draggable')).forEach(ch => {
+                                    if (ch.id === el.id) otherDz.removeChild(ch);
+                                });
+                                if (otherDz.querySelectorAll('.draggable').length === 0) {
+                                    otherDz.style.borderColor = '#94a3b8'; otherDz.style.backgroundColor = ''; delete otherDz.dataset.correct;
+                                } else {
+                                    const rem = otherDz.querySelector('.draggable');
+                                    if (rem) {
+                                        const remText = rem.textContent.trim();
+                                        const remExp = normalizeText((it.answerMap && it.answerMap[remText]) ? it.answerMap[remText]: '');
+                                        const otherLabel = otherDz.querySelector('.dropzone-label');
+                                        const otherZoneText = normalizeText(otherDz.dataset.target || (otherLabel ? otherLabel.textContent: ''));
+                                        if (remExp && remExp === otherZoneText) {
+                                            otherDz.style.borderColor = '#16a34a'; otherDz.style.backgroundColor = '#ecfdf5'; otherDz.dataset.correct = 'true';
+                                        } else {
+                                            otherDz.style.borderColor = '#dc2626'; otherDz.style.backgroundColor = '#fff1f2'; otherDz.dataset.correct = 'false';
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                        targetsDiv.appendChild(dz);
+                    });
+                    block.appendChild(termsDiv);
+                    block.appendChild(targetsDiv);
+
+                    const checkBtn = document.createElement('button');
+                    checkBtn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded';
+                    checkBtn.textContent = 'Verificar actividad';
+
+                    checkBtn.addEventListener('click', () => {
+                        const itemId = it.id || `interactive-${idx}`;
+                        const zones = block.querySelectorAll('.dropzone');
+                        const allCorrect = Array.from(zones).length > 0 &&
+                        Array.from(zones).every(zone => zone.dataset.correct === 'true');
+
+                        if (allCorrect) {
+                            alert('✅ Actividad correcta');
+                            markItem('interactive', itemId, true);
+                        } else {
+                            alert('❌ Revisa la actividad.');
+                            markItem('interactive', itemId, false);
+                        }
+                    });
+
+                    block.appendChild(checkBtn);
+                } else if (it.type === 'complete') {
+                    const q = document.createElement('div'); q.innerHTML = `<div class="mt-2">${escapeHtml(it.prompt || '')}</div><input class="mt-2 border rounded p-1" id="fill-${idx}">`;
+                    const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                    btn.addEventListener('click', () => {
+                        const user = document.getElementById(`fill-${idx}`).value.trim();
+                        const itemId = it.id || `interactive-${idx}`;
+
+                        if (normalizeText(user) === normalizeText(it.answer || '')) {
+                            alert('✅ Correcto');
+                            markItem('interactive', itemId, true);
+                        } else {
+                            alert('❌ Incorrecto.');
+                            markItem('interactive', itemId, false);
+                        }
+                    });
+                    block.appendChild(q); block.appendChild(btn);
+                }
+                area.appendChild(block);
+            });
+            document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+        }
+
+        /* render maps */
+        function renderMaps() {
+            const disp = document.getElementById('mapsDisplay');
+            disp.innerHTML = '';
+
+            Object.entries(DB.maps || {}).forEach(([k,
+                v]) => {
+                const itemId = `map-${k}`;
+
+                const div = document.createElement('div');
+                div.className = 'relative bg-gray-50 p-3 rounded';
+
+                div.innerHTML = `
+                <h3 class="font-semibold capitalize">${escapeHtml(k)}</h3>
+                <pre class="map pr-14">${escapeHtml(v)}</pre>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="maps" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="maps" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                `;
+
+                div.querySelectorAll('.score-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        markItem(
+                            btn.dataset.section,
+                            btn.dataset.id,
+                            btn.dataset.correct === 'true'
+                        );
+                    });
+                });
+
+                disp.appendChild(div);
+            });
+
+            document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+        }
+
+        /* Save/load DB to localStorage */
+        function saveToLocal() {
+            localStorage.setItem('DB_biocel', JSON.stringify(DB));
+        }
+        function loadFromLocal() {
+            const raw = localStorage.getItem('DB_biocel');
+            if (raw) {
+                try {
+                    DB = JSON.parse(raw);
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+            ensureDbShape();
+            renderAll();
+        }
+        function renderAll() {
+            ensureDbShape();
+            renderQuizTopics();
+            renderGloss();
+            renderFlashcards();
+            renderStructures();
+            renderCases();
+            renderInteratives();
+            renderMaps();
+
+            document.getElementById('questionsJSON').value = JSON.stringify(DB.questions || [], null, 2);
+            document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+
+            updateDashboard();
+        }
+        /* Score and dashboard */
+        const POINTS_PER_ITEM = 10;
+
+        function getProgress() {
+            return JSON.parse(localStorage.getItem('progressBySection') || '{}');
+        }
+
+        function saveProgress(progress) {
+            localStorage.setItem('progressBySection', JSON.stringify(progress));
+        }
+
+        function markItem(section, id, isCorrect) {
+            const progress = getProgress();
+
+            if (!progress[section]) {
+                progress[section] = {};
+            }
+
+            progress[section][id] = isCorrect ? 'correct': 'incorrect';
+
+            saveProgress(progress);
+            updateDashboard();
+        }
+
+        function countCorrect(progress, section) {
+            if (!progress[section]) return 0;
+
+            return Object.values(progress[section]).filter(value => value === 'correct').length;
+        }
+
+        function getSectionTotals() {
+            return {
+                quiz: Array.isArray(DB.questions) ? DB.questions.length: 0,
+                gloss: Array.isArray(DB.glossary) ? DB.glossary.length: 0,
+                flash: Array.isArray(DB.flashcards) ? DB.flashcards.length: 0,
+                structures: Array.isArray(DB.structures) ? DB.structures.length: 0,
+                cases: Array.isArray(DB.cases) ? DB.cases.length: 0,
+                interactive: Array.isArray(DB.interactives) ? DB.interactives.length: 0,
+                maps: DB.maps && typeof DB.maps === 'object' ? Object.keys(DB.maps).length: 0
+            };
+        }
+
+        function formatProgress(correct, total) {
+            const obtained = correct * POINTS_PER_ITEM;
+            const max = total * POINTS_PER_ITEM;
+            const percent = max > 0 ? Math.round((obtained / max) * 100): 0;
+
+            return {
+                obtained,
+                max,
+                percent,
+                text: `${obtained} / ${max} - ${percent}%`
+            };
+        }
+
+        function updateDashboard() {
+            const progress = getProgress();
+            const totals = getSectionTotals();
+
+            const quiz = formatProgress(countCorrect(progress, 'quiz'), totals.quiz);
+            const gloss = formatProgress(countCorrect(progress, 'gloss'), totals.gloss);
+            const flash = formatProgress(countCorrect(progress, 'flash'), totals.flash);
+            const structures = formatProgress(countCorrect(progress, 'structures'), totals.structures);
+            const cases = formatProgress(countCorrect(progress, 'cases'), totals.cases);
+            const interactive = formatProgress(countCorrect(progress, 'interactive'), totals.interactive);
+            const maps = formatProgress(countCorrect(progress, 'maps'), totals.maps);
+
+            const obtainedTotal =
+            quiz.obtained +
+            gloss.obtained +
+            flash.obtained +
+            structures.obtained +
+            cases.obtained +
+            interactive.obtained +
+            maps.obtained;
+
+            const maxTotal =
+            quiz.max +
+            gloss.max +
+            flash.max +
+            structures.max +
+            cases.max +
+            interactive.max +
+            maps.max;
+
+            const totalPercent = maxTotal > 0
+            ? Math.round((obtainedTotal / maxTotal) * 100): 0;
+
+            document.getElementById('score').textContent = obtainedTotal;
+            document.getElementById('maxScore').textContent = maxTotal;
+            document.getElementById('scorePercent').textContent = `${totalPercent}%`;
+
+            document.getElementById('progressQuiz').textContent = quiz.text;
+            document.getElementById('progressGloss').textContent = gloss.text;
+            document.getElementById('progressFlash').textContent = flash.text;
+            document.getElementById('progressStructures').textContent = structures.text;
+            document.getElementById('progressCases').textContent = cases.text;
+            document.getElementById('progressInteractive').textContent = interactive.text;
+            document.getElementById('progressMaps').textContent = maps.text;
+        }
+
+        loadFromLocal();
+
+        /* Navigation wiring */
+        const sections = document.querySelectorAll("section");
+        document.querySelectorAll(".btn").forEach(btn=> {
+            btn.classList.add("px-3", "py-1", "rounded", "bg-indigo-600", "text-white"); btn.addEventListener('click', ()=> {
+                sections.forEach(sec=>sec.classList.add('hidden-by-default')); document.getElementById(btn.dataset.target).classList.remove('hidden-by-default'); window.scrollTo({
+                    top: 0, behavior: 'smooth'
+                });
+            });
+        });
+
+        /* File import/export */
+        const fileInput = document.getElementById('fileInput');
+        document.querySelector('.btn-file').addEventListener('click', ()=> fileInput.click());
+        fileInput.addEventListener('change', handleFile, false);
+        document.getElementById('exportJSON').addEventListener('click', exportAll);
+
+        function handleFile(evt) {
+            const f = evt.target.files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = e=> {
+                try {
+                    const obj = JSON.parse(e.target.result);
+                    // basic merge/replace: if keys present replace DB keys
+                    DB = Object.assign({}, DB, obj);
+                    ensureDbShape();
+                    renderAll();
+                    saveToLocal();
+                    alert('Contenido importado correctamente.');
+                } catch(err) {
+                    alert('Error leyendo JSON: ' + err.message);
+                }
+            };
+            reader.readAsText(f);
+        }
+        function exportAll() {
+            const dataStr = JSON.stringify(DB, null, 2);
+            const blob = new Blob([dataStr], {
+                type: "application/json"
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'contenido_biologia_celular.json'; document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        /* CRUD simple for glosario, flashcards, etc. */
+        document.getElementById('addTerm').addEventListener('click', ()=> {
+            const t = document.getElementById('termInput').value.trim(); const d = document.getElementById('defInput').value.trim();
+            if (!t || !d) {
+                alert('Rellena término y definición'); return;
+            }
+            DB.glossary.unshift({
+                term: t, def: d
+            }); document.getElementById('termInput').value = ''; document.getElementById('defInput').value = ''; renderGloss(); saveToLocal();
+        });
+        document.getElementById('clearGloss').addEventListener('click', ()=> {
+            if (!confirm('Borrar todo el glosario?')) return; DB.glossary = []; renderGloss(); saveToLocal();
+        });
+        document.getElementById('importGloss').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('glossJSON').value); if (Array.isArray(arr)) {
+                    DB.glossary = arr;
+                    renderGloss();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Glosario importado');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportGloss').addEventListener('click', ()=> {
+            document.getElementById('glossJSON').value = JSON.stringify(DB.glossary, null, 2);
+        });
+
+        document.getElementById('loadFlash').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('flashJSON').value); if (Array.isArray(arr)) {
+                    DB.flashcards = arr;
+                    renderFlashcards();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Flashcards cargadas');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportFlash').addEventListener('click', ()=> {
+            document.getElementById('flashJSON').value = JSON.stringify(DB.flashcards, null, 2);
+        });
+
+        document.getElementById('loadStructures').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('structuresJSON').value); if (Array.isArray(arr)) {
+                    DB.structures = arr;
+                    renderStructures();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Estructuras cargadas');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportStructures').addEventListener('click', ()=> {
+            document.getElementById('structuresJSON').value = JSON.stringify(DB.structures, null, 2);
+        });
+
+        document.getElementById('loadCases').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('casesJSON').value); if (Array.isArray(arr)) {
+                    DB.cases = arr;
+                    renderCases();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Casos cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportCases').addEventListener('click', ()=> {
+            document.getElementById('casesJSON').value = JSON.stringify(DB.cases, null, 2);
+        });
+
+        document.getElementById('loadInter').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('interJSON').value); if (Array.isArray(arr)) {
+                    DB.interactives = arr;
+                    renderInteratives();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Interactivos cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportInter').addEventListener('click', ()=> {
+            document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+        });
+
+        document.getElementById('loadMaps').addEventListener('click', ()=> {
+            try {
+                const obj = JSON.parse(document.getElementById('mapsJSON').value); if (typeof obj === 'object') {
+                    DB.maps = obj;
+                    renderMaps();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Mapas cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportMaps').addEventListener('click', ()=> {
+            document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+        });
+
+        /* Quiz: sequential behavior */
+        let filteredQuestions = DB.questions.slice();
+        let qIndex = 0;
+        let currentQuestion = null;
+        function renderQuizTopics() {
+            const select = document.getElementById('quizTopic');
+            if (!select) return;
+            select.innerHTML = '';
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Todos los bloques';
+            select.appendChild(allOption);
+            const topics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+            topics.forEach(topic => {
+                if (!topic || !topic.value) return;
+                const option = document.createElement('option');
+                option.value = topic.value;
+                option.textContent = topic.label || topic.value;
+                select.appendChild(option);
+            });
+        }
+        function refreshFiltered(topic) {
+            filteredQuestions = (topic && topic !== 'all') ? DB.questions.filter(q=> q.topic === topic): DB.questions.slice();
+            qIndex = 0;
+            document.getElementById('qTotal').textContent = filteredQuestions.length;
+            renderCurrentQuestion();
+        }
+        function renderCurrentQuestion() {
+            if (filteredQuestions.length === 0) {
+                document.getElementById('qText').textContent = 'No hay preguntas en este tema.'; document.getElementById('qOptions').innerHTML = ''; document.getElementById('qNumber').textContent = '0'; return;
+            }
+            if (qIndex < 0) qIndex = 0;
+            if (qIndex >= filteredQuestions.length) qIndex = filteredQuestions.length -1;
+            const q = filteredQuestions[qIndex];
+            document.getElementById('qText').textContent = q.text;
+            const opts = document.getElementById('qOptions'); opts.innerHTML = '';
+            const questionOptions = Array.isArray(q.options) ? q.options: [];
+            questionOptions.forEach((o, i)=> {
+                const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="qopt" value="${i}"> ${escapeHtml(o)}`; opts.appendChild(label);
+            });
+            document.getElementById('qNumber').textContent = (qIndex+1);
+            document.getElementById('qTotal').textContent = filteredQuestions.length;
+            currentQuestion = q;
+        }
+        document.getElementById('quizTopic').addEventListener('change', ()=> {
+            refreshFiltered(document.getElementById('quizTopic').value);
+        });
+        document.getElementById('nextQ').addEventListener('click', ()=> {
+            if (filteredQuestions.length === 0) {
+                alert('No hay preguntas.'); return;
+            } if (qIndex < filteredQuestions.length-1) qIndex++; renderCurrentQuestion();
+        });
+        document.getElementById('prevQ').addEventListener('click', ()=> {
+            if (filteredQuestions.length === 0) {
+                alert('No hay preguntas.'); return;
+            } if (qIndex > 0) qIndex--; renderCurrentQuestion();
+        });
+        document.getElementById('checkA').addEventListener('click', () => {
+            const sel = document.querySelector('input[name="qopt"]:checked');
+            const res = document.getElementById('qResult');
+
+            if (!currentQuestion) {
+                res.textContent = 'No hay pregunta seleccionada.';
+                return;
+            }
+
+            if (!sel) {
+                res.textContent = 'Selecciona una opción.';
+                return;
+            }
+
+            const itemId = currentQuestion.id || `quiz-${qIndex}`;
+
+            if (parseInt(sel.value) === currentQuestion.answer) {
+                res.textContent = '✅ Correcto. ' + (currentQuestion.explain || '');
+                markItem('quiz', itemId, true);
+            } else {
+                res.textContent = '❌ Incorrecto. ' + (currentQuestion.explain || '');
+                markItem('quiz', itemId, false);
+            }
+        });
+
+        document.getElementById('showAll').addEventListener('click', ()=> {
+            document.getElementById('questionsJSON').value = JSON.stringify(DB.questions, null, 2);
+        });
+
+        /* Load questions JSON editor */
+        document.getElementById('loadQuestions').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('questionsJSON').value); if (Array.isArray(arr)) {
+                    DB.questions = arr;
+                    refreshFiltered(document.getElementById('quizTopic').value);
+                    renderAll();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Preguntas cargadas');
+                } else alert('Formato inválido (se espera array).');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('loadQuizTopics').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('quizTopicsJSON').value);
+                if (Array.isArray(arr)) {
+                    DB.quizTopics = arr;
+                    renderQuizTopics();
+                    refreshFiltered(document.getElementById('quizTopic').value);
+                    saveToLocal();
+                    alert('Bloques del quiz cargados');
+                } else {
+                    alert('Formato inválido (se espera array).');
+                }
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportQuizTopics').addEventListener('click', ()=> {
+            document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+        });
+
+        /* Reset progress */
+        document.getElementById('reset').addEventListener('click', () => {
+            if (!confirm('Reiniciar todo el progreso?')) return;
+
+            localStorage.removeItem('progressBySection');
+            localStorage.removeItem('score');
+            localStorage.removeItem('block1');
+            localStorage.removeItem('block2');
+            localStorage.removeItem('block3');
+
+            updateDashboard();
+        });
+
+        /* initial render and quiz setup */
+        renderAll();
+        refreshFiltered('all');
+
+        /* =====================
+HOME JSON (SOLO INICIO)
+===================== */
+
+        document.getElementById("loadHomeJSON").addEventListener("click", () => {
+            try {
+                const data = JSON.parse(document.getElementById("homeJSON").value);
+
+                if (data.title) {
+                    document.getElementById("homeTitle").textContent = data.title;
+                }
+                if (data.description) {
+                    document.getElementById("homeDescription").innerHTML = data.description;
+                }
+            } catch (e) {
+                alert("JSON inválido en Inicio");
+            }
+        });
+
+        document.getElementById("exportHomeJSON").addEventListener("click", () => {
+            const data = {
+                title: document.getElementById("homeTitle").textContent,
+                description: document.getElementById("homeDescription").innerHTML
+            };
+            document.getElementById("homeJSON").value = JSON.stringify(data, null, 2);
+        });
+    </script>
+</body>
+</html>
